@@ -1,0 +1,9 @@
+version: "2.1"
+
+services:
+  python:
+    image: rl-games
+    build: .
+    volumes:
+      - .:/app/
+    stdin_open: true
