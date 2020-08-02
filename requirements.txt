@@ -1,0 +1,4 @@
+# Modules for development
+flake8
+autopep8
+ipykernel
