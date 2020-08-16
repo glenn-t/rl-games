@@ -8,6 +8,22 @@ _NUM_PLAYERS = 2
 _NUM_ROWS = 4
 _NUM_COLS = 4
 _NUM_CELLS = _NUM_ROWS * _NUM_COLS
+_DIRECTIONS = ["UP", "DOWN", "LEFT", "RIGHT", "UP LEFT", "UP RIGHT", "DOWN LEFT", "DOWN RIGHT"]
+_PLAYER_TOKENS = {
+    0: "x",
+    1: "o",
+    None: "."
+}
+_DIRECTION_COORDS = {
+    "UP": np.array([-1, 0]),
+    "DOWN": np.array([1, 0]),
+    "LEFT": np.array([0, -1]),
+    "RIGHT": np.array([0, 1]),
+    "UP LEFT": np.array([-1, -1]),
+    "UP RIGHT": np.array([-1, 1]),
+    "DOWN LEFT": np.array([1, -1]),
+    "DOWN RIGHT": np.array([1, 1])
+}
 
 
 def _line_value(line):
@@ -27,26 +43,32 @@ class DaoState(object):
     (backpointers to the C++ game object, which we can't get from here).
     """
 
-    def __init__(self, game):
+    def __init__(self, game, max_game_length):
         self._game = game
+        self._max_game_length = max_game_length
         self.set_state(
             cur_player=0,
             winner=None,
             is_terminal=False,
             history=[],
+            turn_number=0,
             board=np.full((_NUM_ROWS, _NUM_COLS), "."))
 
     # Helper functions (not part of the OpenSpiel API).
 
-    def set_state(self, cur_player, winner, is_terminal, history, board):
+    def set_state(self, cur_player, winner, is_terminal, history, turn_number, board):
         self._cur_player = cur_player
         self._winner = winner
         self._is_terminal = is_terminal
         self._history = history
+        self._turn_number = turn_number
         self._board = board
 
+    def get_player_token(self, player):
+        return (_PLAYER_TOKENS[player])
+
     def coord(self, move):
-        return (move // _NUM_COLS, move % _NUM_COLS)
+        return np.array([move // _NUM_COLS, move % _NUM_COLS])
 
     def line_exists(self):
         """Checks if a line exists, returns "x" or "o" if so, and None otherwise."""
@@ -91,10 +113,20 @@ class DaoState(object):
             return []
         else:
             actions = []
-            for action in range(_NUM_CELLS):
-                if self._board[self.coord(action)] == ".":
-                    actions.append(action)
-            return actions
+            # 8 actions for each cell
+            for i in range(_NUM_ROWS):
+                for j in range(_NUM_COLS):
+                    # Check if players piece is on board
+                    if self._board[i, j] == self.get_player_token(self._cur_player):
+                        current_cell = np.array([i, j])
+                        for direction_id, direction in enumerate(_DIRECTIONS):
+                            cell_to_move_to = current_cell + _DIRECTION_COORDS[direction]
+                            # Check if direction is valid
+                            if((np.all(cell_to_move_to) >= 0) | np.all(cell_to_move_to) <= _NUM_CELLS):
+                                # Check if direction is free
+                                if(self._board[cell_to_move_to[0], cell_to_move_to[1]] == "."):
+                                    actions.append(i * _NUM_ROWS + j) * 8 + direction_id
+            return(actions)
 
     def legal_actions_mask(self, player=None):
         """Get a list of legal actions.
@@ -112,13 +144,22 @@ class DaoState(object):
         elif self.is_terminal():
             return []
         else:
-            action_mask = [0] * _NUM_CELLS
+            action_mask = [0] * _NUM_CELLS * 8
             for action in self.legal_actions():
                 action_mask[action] = 1
             return action_mask
 
     def apply_action(self, action):
         """Applies the specified action to the state."""
+
+        # Cell of piece to move
+        current_cell = self.coord(action // 8)
+        direction_id = action % 8
+        # Keep moving in specified direction until piece cannot move
+        blocked = False
+        while (not blocked):
+            next_cell =
+
         self._board[self.coord(action)] = "x" if self._cur_player == 0 else "o"
         self._history.append(action)
         if self.line_exists():
@@ -229,14 +270,14 @@ class DaoState(object):
         return "\n".join("".join(row) for row in self._board)
 
     def clone(self):
-        cloned_state = TicTacToeState(self._game)
+        cloned_state = DaoState(self._game)
         cloned_state.set_state(self._cur_player, self._winner, self._is_terminal,
                                self._history[:], np.array(self._board))
         return cloned_state
 
 
-class TicTacToeGame(object):
-    """A python - only version of the Tic - Tac - Toe game.
+class DaoGame(object):
+    """Dao
 
     This class implements all the pyspiel.Gae API functions. Please see spiel.h
     for more thorough documentation of each function.
@@ -246,20 +287,23 @@ class TicTacToeGame(object):
     (backpointers to the C + + game object, which we can't get from here).
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, max_game_length):
+        """
+        max_length: maximum game length
+        """
+        self._max_game_length = max_game_length
 
     def new_initial_state(self):
-        return TicTacToeState(self)
+        return DaoState(self, max_game_length=self._max_game_length)
 
     def num_distinct_actions(self):
-        return _NUM_CELLS
+        return _NUM_CELLS * 8  # 8 directions per cell
 
     def policy_tensor_shape(self):
-        return (_NUM_ROWS, _NUM_COLS, 1)
+        return (_NUM_ROWS, _NUM_COLS, 8)
 
     def clone(self):
-        return TicTacToeGame()
+        return DaoGame(max_game_length=self._max_game_length)
 
     def max_chance_outcomes(self):
         return 0
@@ -278,8 +322,8 @@ class TicTacToeGame(object):
 
     def get_type(self):
         return pyspiel.GameType(
-            short_name="python_tic_tac_toe",
-            long_name="Python Tic-Tac-Toe",
+            short_name="dao",
+            long_name="Dao",
             dynamics=pyspiel.GameType.Dynamics.SEQUENTIAL,
             chance_mode=pyspiel.GameType.ChanceMode.DETERMINISTIC,
             information=pyspiel.GameType.Information.PERFECT_INFORMATION,
@@ -310,7 +354,7 @@ class TicTacToeGame(object):
         return pickle.loads(string)
 
     def max_game_length(self):
-        return _NUM_CELLS
+        return self._max_game_length
 
     def __str__(self):
-        return "python_tic_tac_toe"
+        return "dao"
