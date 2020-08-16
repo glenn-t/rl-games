@@ -51,17 +51,15 @@ class DaoState(object):
             winner=None,
             is_terminal=False,
             history=[],
-            turn_number=0,
             board=np.full((_NUM_ROWS, _NUM_COLS), "."))
 
     # Helper functions (not part of the OpenSpiel API).
 
-    def set_state(self, cur_player, winner, is_terminal, history, turn_number, board):
+    def set_state(self, cur_player, winner, is_terminal, history, board):
         self._cur_player = cur_player
         self._winner = winner
         self._is_terminal = is_terminal
         self._history = history
-        self._turn_number = turn_number
         self._board = board
 
     def get_player_token(self, player):
@@ -69,6 +67,9 @@ class DaoState(object):
 
     def coord(self, move):
         return np.array([move // _NUM_COLS, move % _NUM_COLS])
+
+    def check_victory(self):
+        pass
 
     def line_exists(self):
         """Checks if a line exists, returns "x" or "o" if so, and None otherwise."""
@@ -154,23 +155,40 @@ class DaoState(object):
 
         # Cell of piece to move
         current_cell = self.coord(action // 8)
+        # Remove piece from the current cell
+        self._board[current_cell] = "."
         direction_id = action % 8
+        direction_vector = _DIRECTION_COORDS[direction_id]
         # Keep moving in specified direction until piece cannot move
         blocked = False
         while (not blocked):
-            next_cell =
+            next_cell = current_cell + direction_vector
+            # Check if we have reached the edge of the board
+            blocked = (np.any(next_cell) < 0) or (np.any(next_cell) > _NUM_CELLS)
+            if not blocked:
+                # If not at edge of board, check if the cell is taken
+                blocked = self._board[next_cell] != "."
+            if not blocked:
+                # Move piece
+                current_cell = next_cell
 
-        self._board[self.coord(action)] = "x" if self._cur_player == 0 else "o"
+        # Move piece to current cell
+        self._board[current_cell] = _PLAYER_TOKENS[self._cur_player]
+
         self._history.append(action)
-        if self.line_exists():
+
+        winner = self.check_victory()
+        if winner is not None:
             self._is_terminal = True
-            self._winner = self._cur_player
-        elif len(self._history) == _NUM_CELLS:
+            self._winner = winner
+        elif len(self._history) == self._max_game_length:
             self._is_terminal = True
         else:
+            # Switch player
             self._cur_player = 1 - self._cur_player
 
     def undo_action(self, action):
+        # TODO
         # Optional function. Not used in many places.
         self._board[self.coord(action)] = "."
         self._cur_player = 1 - self._cur_player
@@ -179,6 +197,7 @@ class DaoState(object):
         self._is_terminal = False
 
     def action_to_string(self, arg0, arg1=None):
+        # TODO
         """Action -> string. Args either(player, action) or (action)."""
         player = self.current_player() if arg1 is None else arg0
         action = arg0 if arg1 is None else arg1
