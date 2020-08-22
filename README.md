@@ -1,1 +1,20 @@
-# rl-games
+# Reinforecment Learning solutions for Board Games
+
+This project aims to produce reinforcement learning solutions for board games. It is currently in the early stages.
+
+The game implementations are based on the [OpenSpiel framework](https://github.com/deepmind/open_spiel), a reinforcement learning framework for games.
+
+Current games:
+
+  * Tic Tac Toe (an OpenSpiel example).
+  * [Dao](https://boardgamegeek.com/boardgame/948/dao) (in progress).
+
+## Development Guide
+
+For reproducibility reasons, I am using VS code development containers. This is a convenient way to develop code within a Docker enviornment.
+
+Requirements:
+
+  * Docker.
+  * OpenSpiel Docker container must be built on the local system. See [here](https://github.com/deepmind/open_spiel/).blob/master/docs/install.md) for details. Option 1 (Basic) contains more utilities so is recommended.
+  * VS Code & [VS Code Remote Containers](https://code.visualstudio.com/docs/remote/containers) extension.
