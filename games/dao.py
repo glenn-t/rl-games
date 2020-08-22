@@ -26,6 +26,23 @@ _DIRECTION_COORDS = {
 }
 
 
+def _create_action_mapping(num_rows, num_cols, directions):
+    """Creates two dictionaries, from mapping from action ID to action and another from action to action ID"""
+    action_id_mapping = {}
+    action_mapping = {}
+    action_id = 0
+    for i in range(num_rows):
+        for j in range(num_cols):
+            for direction in directions:
+                action_id_mapping[action_id] = (i, j, direction)
+                action_mapping[(i, j, direction)] = action_id
+                action_id += 1
+    return(action_id_mapping, action_mapping)
+
+
+_ACTIONID_TO_ACTION, _ACTION_TO_ACTIONID = _create_action_mapping(_NUM_ROWS, _NUM_COLS, _DIRECTION_COORDS.keys())
+
+
 def _line_value(line):
     """Checks a possible line, returning the winning symbol if any."""
     if all(line == "x") or all(line == "o"):
@@ -65,11 +82,22 @@ class DaoState(object):
     def get_player_token(self, player):
         return (_PLAYER_TOKENS[player])
 
-    def coord(self, move):
-        return np.array([move // _NUM_COLS, move % _NUM_COLS])
-
     def check_victory(self):
-        pass
+        """Checks for victory and returns the player_id of the winning player or None if there is no winning player"""
+        winner = self.line_exists()
+        if winner is None:
+            winner = self.square_exists()
+            if winner is None:
+                winner = self.corner_exists()
+                if winner is None:
+                    winner = self.corner_blocked()
+
+        if winner is not None:
+            # Return player_id of winning player
+            winner = [key for key, value in _PLAYER_TOKENS.items() if value == winner][0]
+
+        else:
+            return None
 
     def line_exists(self):
         """Checks if a line exists, returns "x" or "o" if so, and None otherwise."""
@@ -79,16 +107,19 @@ class DaoState(object):
 
     def square_exists(self):
         """Checks if a square exists, returns "x" or "o" if so, and None otherwise."""
+        # TODO
         return None
 
     def corner_exists(self):
         """Checks if a all corners are filled, returns "x" or "o" if so, and None otherwise."""
+        # TODO
         return None
 
     def corner_blocked(self):
         """Checks if a players piece is cornered in a corner.
-        Returns the symbol of the players piece that is cornered
+        Returns the symbol of the players piece that is cornered (i.e. the winner)
         """
+        # TODO
         return None
 
     # OpenSpiel (PySpiel) API functions are below. These need to be provided by
@@ -126,7 +157,7 @@ class DaoState(object):
                             if((np.all(cell_to_move_to) >= 0) | np.all(cell_to_move_to) <= _NUM_CELLS):
                                 # Check if direction is free
                                 if(self._board[cell_to_move_to[0], cell_to_move_to[1]] == "."):
-                                    actions.append(i * _NUM_ROWS + j) * 8 + direction_id
+                                    actions.append(_ACTION_TO_ACTIONID[(i, j, direction_id)])
             return(actions)
 
     def legal_actions_mask(self, player=None):
@@ -152,12 +183,13 @@ class DaoState(object):
 
     def apply_action(self, action):
         """Applies the specified action to the state."""
-
+        # Get action from action_id
+        action = _ACTIONID_TO_ACTION[action]
         # Cell of piece to move
-        current_cell = self.coord(action // 8)
+        current_cell = action[0:2]
         # Remove piece from the current cell
         self._board[current_cell] = "."
-        direction_id = action % 8
+        direction_id = action[2]
         direction_vector = _DIRECTION_COORDS[direction_id]
         # Keep moving in specified direction until piece cannot move
         blocked = False
@@ -188,21 +220,42 @@ class DaoState(object):
             self._cur_player = 1 - self._cur_player
 
     def undo_action(self, action):
-        # TODO
         # Optional function. Not used in many places.
-        self._board[self.coord(action)] = "."
+
+        # Revert to previous player
         self._cur_player = 1 - self._cur_player
+
+        # Get action from action_id
+        action = _ACTIONID_TO_ACTION[action]
+
+        # Find piece to move back
+        current_cell = action[0:2]
+        # Place piece back in the current cell
+        self._board[current_cell] = _PLAYER_TOKENS[self._cur_player]
+        direction_id = action[2]
+        direction_vector = _DIRECTION_COORDS[direction_id]
+        # Keep searching in specified direction until a piece is found
+        blocked = False
+        while (not blocked):
+            current_cell = current_cell + direction_vector
+            # Check if we have reached the edge of the board
+            blocked = (np.any(current_cell) < 0) or (np.any(current_cell) > _NUM_CELLS)
+            if not blocked:
+                # If not at edge of board, check if the cell is taken
+                blocked = self._board[current_cell] != "."
+        # Remove piece
+        self._board[current_cell] = "."
+
         self._history.pop()
         self._winner = None
         self._is_terminal = False
 
     def action_to_string(self, arg0, arg1=None):
-        # TODO
         """Action -> string. Args either(player, action) or (action)."""
         player = self.current_player() if arg1 is None else arg0
         action = arg0 if arg1 is None else arg1
-        row, col = self.coord(action)
-        return "{}({},{})".format("x" if player == 0 else "o", row, col)
+        action = _ACTIONID_TO_ACTION[action]
+        return "Player: {}, Move ({}, {}) {}".format("x" if player == 0 else "o", action[0], action[1], action[2])
 
     def is_terminal(self):
         return self._is_terminal
