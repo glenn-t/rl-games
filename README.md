@@ -16,5 +16,5 @@ For reproducibility reasons, I am using VS code development containers. This is 
 Requirements:
 
   * Docker.
-  * OpenSpiel Docker container must be built on the local system. See [here](https://github.com/deepmind/open_spiel/).blob/master/docs/install.md) for details. Option 1 (Basic) contains more utilities so is recommended.
+  * The OpenSpiel Docker container must be built on the local system, and tagged `openspiel`. See [here](https://github.com/deepmind/open_spiel/blob/master/docs/install.md) for details. Option 1 (Basic) contains more utilities so is recommended.
   * VS Code & [VS Code Remote Containers](https://code.visualstudio.com/docs/remote/containers) extension.
