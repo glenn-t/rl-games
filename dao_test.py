@@ -3,12 +3,11 @@ import numpy as np
 import games.dao as dao
 from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
-from open_spiel.python.algorithms import mcts
+from open_spiel.python.algorithms import mcts, minimax
 from absl import flags
 from absl import app
 import sys
 import collections
-import pdb
 
 importlib.reload(dao)
 
@@ -24,7 +23,7 @@ _KNOWN_PLAYERS = [
 ]
 
 flags.DEFINE_string("game", "dao", "Name of the game.")
-flags.DEFINE_enum("player1", "random", _KNOWN_PLAYERS, "Who controls player 1.")
+flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, "Who controls player 1.")
 flags.DEFINE_enum("player2", "random", _KNOWN_PLAYERS, "Who controls player 2.")
 flags.DEFINE_string("gtp_path", None, "Where to find a binary for gtp.")
 flags.DEFINE_multi_string("gtp_cmd", [], "GTP commands to run at init.")
@@ -32,14 +31,14 @@ flags.DEFINE_string("az_path", None,
                     "Path to an alpha_zero checkpoint. Needed by an az player.")
 flags.DEFINE_integer("uct_c", 2, "UCT's exploration constant.")
 flags.DEFINE_integer("rollout_count", 1, "How many rollouts to do.")
-flags.DEFINE_integer("max_simulations", 1000, "How many simulations to run.")
+flags.DEFINE_integer("max_simulations", 100, "How many simulations to run.")
 flags.DEFINE_integer("num_games", 1, "How many games to play.")
 flags.DEFINE_integer("seed", None, "Seed for the random number generator.")
 flags.DEFINE_bool("random_first", False, "Play the first move randomly.")
 flags.DEFINE_bool("solve", True, "Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, "Don't show the moves as they're played.")
 flags.DEFINE_bool("verbose", False, "Show the MCTS stats of possible moves.")
-flags.DEFINE_integer("max_game_length", 100, "Maximum number of turns", lower_bound=1)
+flags.DEFINE_integer("max_game_length", 50, "Maximum number of turns", lower_bound=1)
 
 FLAGS = flags.FLAGS
 
@@ -79,18 +78,6 @@ def _get_action(state, action_str):
 def _play_game(game, bots, initial_actions):
     """Plays one game."""
     state = game.new_initial_state()
-
-    state.set_state(
-        cur_player=1,
-        winner=None,
-        is_terminal=False,
-        history=[],
-        board=np.array([
-            ["x", " ", " ", " "],
-            ["o", "o", "o", " "],
-            ["x", " ", " ", " "],
-            [" ", "x", "o", "x"]])
-    )
 
     _opt_print("Initial state:\n{}".format(state))
 

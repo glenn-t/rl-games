@@ -3,7 +3,6 @@
 import pickle
 import numpy as np
 import pyspiel
-import pdb
 
 _NUM_PLAYERS = 2
 _NUM_ROWS = 4
@@ -405,7 +404,7 @@ class DaoState(pyspiel.State):
         return(out)
 
     def clone(self):
-        cloned_state = DaoState(self._game)
+        cloned_state = DaoState(self._game, self._max_game_length)
         cloned_state.set_state(self._cur_player, self._winner, self._is_terminal,
                                self._history[:], np.array(self._board))
         return cloned_state
