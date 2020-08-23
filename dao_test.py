@@ -25,7 +25,7 @@ _KNOWN_PLAYERS = [
 
 flags.DEFINE_string("game", "dao", "Name of the game.")
 flags.DEFINE_enum("player1", "random", _KNOWN_PLAYERS, "Who controls player 1.")
-flags.DEFINE_enum("player2", "human", _KNOWN_PLAYERS, "Who controls player 2.")
+flags.DEFINE_enum("player2", "random", _KNOWN_PLAYERS, "Who controls player 2.")
 flags.DEFINE_string("gtp_path", None, "Where to find a binary for gtp.")
 flags.DEFINE_multi_string("gtp_cmd", [], "GTP commands to run at init.")
 flags.DEFINE_string("az_path", None,

@@ -47,7 +47,7 @@ _CORNER_COODS = [(0, 0), (0, _NUM_COLS - 1), (_NUM_ROWS - 1, 0), (_NUM_ROWS - 1,
 # Coordinates of cells adjacent to each corner
 _CORNER_COORDS_ADJACENT = {
     # Top left
-    (0, 0): [(0, 1), (1, 1), (1, 1)],
+    (0, 0): [(0, 1), (1, 1), (1, 0)],
     # Top right
     (0, _NUM_COLS - 1): [(0, _NUM_COLS - 2), (1, _NUM_COLS - 1), (1, _NUM_COLS - 2)],
     # Bottom left
@@ -164,14 +164,12 @@ class DaoState(pyspiel.State):
         """Checks if a players piece is cornered in a corner.
         Returns the symbol of the players piece that is cornered (i.e. the winner)
         """
-        # TODO - still not working
-        pdb.set_trace()
         for p in range(_NUM_PLAYERS):
             for coord in _CORNER_COODS:
                 if self._board[coord] == _PLAYER_TOKENS[p]:
                     # Players piece is in corner
                     # Check surrounds
-                    surrounds = [self._board[adj_coord] for adj_coord in _CORNER_COORDS_ADJACENT[coord]]
+                    surrounds = np.array([self._board[adj_coord] for adj_coord in _CORNER_COORDS_ADJACENT[coord]])
                     win = np.all(surrounds == _PLAYER_TOKENS[1 - p])
                     if win:
                         return _PLAYER_TOKENS[p]
