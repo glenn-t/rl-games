@@ -86,10 +86,10 @@ def _play_game(game, bots, initial_actions):
         is_terminal=False,
         history=[],
         board=np.array([
-            [" ", "x", " ", "o"],
-            ["x", "x", " ", " "],
             ["x", " ", " ", " "],
-            ["o", "o", "o", " "]])
+            ["o", "o", "o", " "],
+            ["x", " ", " ", " "],
+            [" ", "x", "o", "x"]])
     )
 
     _opt_print("Initial state:\n{}".format(state))
@@ -184,18 +184,17 @@ def main(argv):
     print("Overall wins", overall_wins)
     print("Overall returns", overall_returns)
 
+
 # game = dao.DaoGame(max_game_length=100)
 # state = game.new_initial_state()
 # print(state)
-# while not state.is_terminal():
-#     possible_actions = state.legal_actions()
-#     if state.current_player() == 1:
-#         # Human choose move
-#         action = input("Choose action")
-#     else:
-#         action_id = np.random.choice(possible_actions)
-#     state.apply_action(action_id)
-#     print(state)
+
+# possible_actions = state.legal_actions()
+# action_id = np.random.choice(possible_actions)
+# state.apply_action(action_id)
+# print(state)
+# state.undo_action(action_id)
+# print(state)
 
 # print(state)
 # print(state.rewards())

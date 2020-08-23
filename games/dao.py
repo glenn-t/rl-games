@@ -4,7 +4,6 @@ import pickle
 import numpy as np
 import pyspiel
 import pdb
-from functools import lru_cache
 
 _NUM_PLAYERS = 2
 _NUM_ROWS = 4
@@ -30,6 +29,7 @@ _DIRECTION_COORDS = {
 
 def _create_action_mapping(num_rows, num_cols, directions):
     """Creates two dictionaries, from mapping from action ID to action and another from action to action ID"""
+    # TODO could improve efficiency by removing invalid actions here
     action_id_mapping = {}
     action_mapping = {}
     action_id = 0
@@ -44,6 +44,17 @@ def _create_action_mapping(num_rows, num_cols, directions):
 
 _ACTIONID_TO_ACTION, _ACTION_TO_ACTIONID = _create_action_mapping(_NUM_ROWS, _NUM_COLS, _DIRECTION_COORDS.keys())
 _CORNER_COODS = [(0, 0), (0, _NUM_COLS - 1), (_NUM_ROWS - 1, 0), (_NUM_ROWS - 1, _NUM_COLS - 1)]
+# Coordinates of cells adjacent to each corner
+_CORNER_COODS_ADJACENT = {
+    # Top left
+    (0, 0): [(0, 1), (1, 1), (1, 1)],
+    # Top right
+    (0, _NUM_COLS - 1): [(0, _NUM_COLS - 2), (1, _NUM_COLS - 1), (1, _NUM_COLS - 2)],
+    # Bottom left
+    (_NUM_ROWS - 1, 0): [(_NUM_ROWS - 2, 0), (_NUM_ROWS - 1, 1), (_NUM_ROWS - 2, 1)],
+    # Bottom right
+    (_NUM_ROWS - 1, _NUM_COLS - 1): [(_NUM_ROWS - 2, _NUM_COLS - 1), (_NUM_ROWS - 1, _NUM_COLS - 2), (_NUM_ROWS - 2, _NUM_COLS - 2)]
+}
 
 
 def _initial_board(num_rows, player_tokens):
@@ -153,6 +164,17 @@ class DaoState(pyspiel.State):
         """Checks if a players piece is cornered in a corner.
         Returns the symbol of the players piece that is cornered (i.e. the winner)
         """
+        # TODO - still not working
+        for p in range(_NUM_PLAYERS):
+            for coord in _CORNER_COODS:
+                if self._board[coord] != _PLAYER_TOKENS[p]:
+                    # Players piece is in corner
+                    # Check surrounds
+                    surrounds = [self._board[adj_coord] for adj_coord in _CORNER_COODS_ADJACENT[coord]]
+                    win = np.all(surrounds == _PLAYER_TOKENS[1 - p])
+                    if win:
+                        return _PLAYER_TOKENS[p]
+        # No winner, return None
         return None
 
         # OpenSpiel (PySpiel) API functions are below. These need to be provided by
