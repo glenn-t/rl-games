@@ -3,16 +3,18 @@
 import pickle
 import numpy as np
 import pyspiel
+import pdb
+from functools import lru_cache
 
 _NUM_PLAYERS = 2
 _NUM_ROWS = 4
-_NUM_COLS = 4
+_NUM_COLS = _NUM_ROWS  # Must be square
 _NUM_CELLS = _NUM_ROWS * _NUM_COLS
 _DIRECTIONS = ["UP", "DOWN", "LEFT", "RIGHT", "UP LEFT", "UP RIGHT", "DOWN LEFT", "DOWN RIGHT"]
 _PLAYER_TOKENS = {
     0: "x",
     1: "o",
-    None: "."
+    None: " "
 }
 _DIRECTION_COORDS = {
     "UP": np.array([-1, 0]),
@@ -41,15 +43,21 @@ def _create_action_mapping(num_rows, num_cols, directions):
 
 
 _ACTIONID_TO_ACTION, _ACTION_TO_ACTIONID = _create_action_mapping(_NUM_ROWS, _NUM_COLS, _DIRECTION_COORDS.keys())
+_CORNER_COODS = [(0, 0), (0, _NUM_COLS - 1), (_NUM_ROWS - 1, 0), (_NUM_ROWS - 1, _NUM_COLS - 1)]
 
 
-def _line_value(line):
-    """Checks a possible line, returning the winning symbol if any."""
-    if all(line == "x") or all(line == "o"):
-        return line[0]
+def _initial_board(num_rows, player_tokens):
+    """Generate initial board"""
+    board = np.full((num_rows, num_rows), player_tokens[None])
+    for i in range(num_rows):
+        # Fill in player 0 as leading diagonal
+        board[(i, i)] = player_tokens[0]
+        # Fill in player 1 as the off diagonal
+        board[(i, num_rows - i - 1)] = player_tokens[1]
+    return(board)
 
 
-class DaoState(object):
+class DaoState(pyspiel.State):
     """Dao state
 
     This class implements all the pyspiel.State API functions. Please see spiel.h
@@ -68,7 +76,7 @@ class DaoState(object):
             winner=None,
             is_terminal=False,
             history=[],
-            board=np.full((_NUM_ROWS, _NUM_COLS), "."))
+            board=_initial_board(_NUM_ROWS, _PLAYER_TOKENS))
 
     # Helper functions (not part of the OpenSpiel API).
 
@@ -95,35 +103,60 @@ class DaoState(object):
         if winner is not None:
             # Return player_id of winning player
             winner = [key for key, value in _PLAYER_TOKENS.items() if value == winner][0]
-
+            return winner
         else:
             return None
 
     def line_exists(self):
         """Checks if a line exists, returns "x" or "o" if so, and None otherwise."""
-        return (_line_value(self._board[0]) or _line_value(self._board[1]) or
-                _line_value(self._board[2]) or _line_value(self._board[:, 0]) or
-                _line_value(self._board[:, 1]) or _line_value(self._board[:, 2]))
+        # Check rows
+        for i in range(_NUM_ROWS):
+            for p in range(_NUM_PLAYERS):
+                win = np.all(self._board[i, :] == _PLAYER_TOKENS[p])
+                if win:
+                    return _PLAYER_TOKENS[p]
+
+        # Check columns
+        for i in range(_NUM_COLS):
+            for p in range(_NUM_PLAYERS):
+                win = np.all(self._board[:, i] == _PLAYER_TOKENS[p])
+                if win:
+                    return _PLAYER_TOKENS[p]
+
+        # No winner, return None
+        return None
 
     def square_exists(self):
         """Checks if a square exists, returns "x" or "o" if so, and None otherwise."""
-        # TODO
+        for i in range(_NUM_ROWS - 1):
+            for j in range(_NUM_COLS - 1):
+                for p in range(_NUM_PLAYERS):
+                    # Check square for each player
+                    win = np.all(self._board[i:(i + 2), j:(j + 2)] == _PLAYER_TOKENS[p])
+                    if win:
+                        return _PLAYER_TOKENS[p]
+        # No winner, return None
         return None
 
     def corner_exists(self):
         """Checks if a all corners are filled, returns "x" or "o" if so, and None otherwise."""
-        # TODO
+        corner_tokens = np.array([self._board[coord] for coord in _CORNER_COODS])
+        for p in range(_NUM_PLAYERS):
+            win = np.all(corner_tokens == _PLAYER_TOKENS[p])
+            if win:
+                return _PLAYER_TOKENS[p]
+
+        # If no winner, return None
         return None
 
     def corner_blocked(self):
         """Checks if a players piece is cornered in a corner.
         Returns the symbol of the players piece that is cornered (i.e. the winner)
         """
-        # TODO
         return None
 
-    # OpenSpiel (PySpiel) API functions are below. These need to be provided by
-    # every game. Some not-often-used methods have been omitted.
+        # OpenSpiel (PySpiel) API functions are below. These need to be provided by
+        # every game. Some not-often-used methods have been omitted.
 
     def current_player(self):
         return pyspiel.PlayerId.TERMINAL if self._is_terminal else self._cur_player
@@ -151,13 +184,13 @@ class DaoState(object):
                     # Check if players piece is on board
                     if self._board[i, j] == self.get_player_token(self._cur_player):
                         current_cell = np.array([i, j])
-                        for direction_id, direction in enumerate(_DIRECTIONS):
+                        for direction in _DIRECTIONS:
                             cell_to_move_to = current_cell + _DIRECTION_COORDS[direction]
                             # Check if direction is valid
-                            if((np.all(cell_to_move_to) >= 0) | np.all(cell_to_move_to) <= _NUM_CELLS):
+                            if np.all(cell_to_move_to >= 0) & np.all(cell_to_move_to < _NUM_ROWS):
                                 # Check if direction is free
-                                if(self._board[cell_to_move_to[0], cell_to_move_to[1]] == "."):
-                                    actions.append(_ACTION_TO_ACTIONID[(i, j, direction_id)])
+                                if(self._board[cell_to_move_to[0], cell_to_move_to[1]] == _PLAYER_TOKENS[None]):
+                                    actions.append(_ACTION_TO_ACTIONID[(i, j, direction)])
             return(actions)
 
     def legal_actions_mask(self, player=None):
@@ -183,12 +216,17 @@ class DaoState(object):
 
     def apply_action(self, action):
         """Applies the specified action to the state."""
+
+        # Check if action is legal
+        assert action in self.legal_actions()
+        # TODO could cache this result for effeciency (agent will call it)
+
         # Get action from action_id
         action = _ACTIONID_TO_ACTION[action]
         # Cell of piece to move
         current_cell = action[0:2]
         # Remove piece from the current cell
-        self._board[current_cell] = "."
+        self._board[current_cell[0], current_cell[1]] = _PLAYER_TOKENS[None]
         direction_id = action[2]
         direction_vector = _DIRECTION_COORDS[direction_id]
         # Keep moving in specified direction until piece cannot move
@@ -196,16 +234,16 @@ class DaoState(object):
         while (not blocked):
             next_cell = current_cell + direction_vector
             # Check if we have reached the edge of the board
-            blocked = (np.any(next_cell) < 0) or (np.any(next_cell) > _NUM_CELLS)
+            blocked = np.any(next_cell < 0) | np.any(next_cell >= _NUM_ROWS)
             if not blocked:
                 # If not at edge of board, check if the cell is taken
-                blocked = self._board[next_cell] != "."
+                blocked = self._board[next_cell[0], next_cell[1]] != _PLAYER_TOKENS[None]
             if not blocked:
                 # Move piece
                 current_cell = next_cell
 
         # Move piece to current cell
-        self._board[current_cell] = _PLAYER_TOKENS[self._cur_player]
+        self._board[current_cell[0], current_cell[1]] = _PLAYER_TOKENS[self._cur_player]
 
         self._history.append(action)
 
@@ -231,7 +269,7 @@ class DaoState(object):
         # Find piece to move back
         current_cell = action[0:2]
         # Place piece back in the current cell
-        self._board[current_cell] = _PLAYER_TOKENS[self._cur_player]
+        self._board[current_cell[0], current_cell[1]] = _PLAYER_TOKENS[self._cur_player]
         direction_id = action[2]
         direction_vector = _DIRECTION_COORDS[direction_id]
         # Keep searching in specified direction until a piece is found
@@ -239,12 +277,12 @@ class DaoState(object):
         while (not blocked):
             current_cell = current_cell + direction_vector
             # Check if we have reached the edge of the board
-            blocked = (np.any(current_cell) < 0) or (np.any(current_cell) > _NUM_CELLS)
+            blocked = np.any(current_cell < 0) | np.any(current_cell > _NUM_ROWS)
             if not blocked:
                 # If not at edge of board, check if the cell is taken
-                blocked = self._board[current_cell] != "."
+                blocked = self._board[current_cell[0], current_cell[1]] != _PLAYER_TOKENS[None]
         # Remove piece
-        self._board[current_cell] = "."
+        self._board[current_cell[0], current_cell[1]] = _PLAYER_TOKENS[None]
 
         self._history.pop()
         self._winner = None
@@ -339,7 +377,11 @@ class DaoState(object):
         return [self.clone()]
 
     def __str__(self):
-        return "\n".join("".join(row) for row in self._board)
+        sep = "|"
+        out = ""
+        for row in self._board:
+            out = out + sep + sep.join(row) + sep + "\n"
+        return(out)
 
     def clone(self):
         cloned_state = DaoState(self._game)
