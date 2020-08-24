@@ -3,11 +3,12 @@ import numpy as np
 import games.dao as dao
 from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
-from open_spiel.python.algorithms import mcts, minimax
+from open_spiel.python.algorithms import mcts
 from absl import flags
 from absl import app
 import sys
 import collections
+import agents
 
 importlib.reload(dao)
 
@@ -19,26 +20,23 @@ _KNOWN_PLAYERS = [
     "random",
 
     # You'll be asked to provide the moves.
-    "human"
+    "human",
+
+    # Naive agent - one step look ahead
+    "naive"
 ]
 
-flags.DEFINE_string("game", "dao", "Name of the game.")
-flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, "Who controls player 1.")
+flags.DEFINE_enum("player1", "naive", _KNOWN_PLAYERS, "Who controls player 1.")
 flags.DEFINE_enum("player2", "random", _KNOWN_PLAYERS, "Who controls player 2.")
-flags.DEFINE_string("gtp_path", None, "Where to find a binary for gtp.")
-flags.DEFINE_multi_string("gtp_cmd", [], "GTP commands to run at init.")
-flags.DEFINE_string("az_path", None,
-                    "Path to an alpha_zero checkpoint. Needed by an az player.")
 flags.DEFINE_integer("uct_c", 2, "UCT's exploration constant.")
 flags.DEFINE_integer("rollout_count", 1, "How many rollouts to do.")
-flags.DEFINE_integer("max_simulations", 100, "How many simulations to run.")
+flags.DEFINE_integer("max_simulations", 10, "How many simulations to run.")
 flags.DEFINE_integer("num_games", 1, "How many games to play.")
 flags.DEFINE_integer("seed", None, "Seed for the random number generator.")
-flags.DEFINE_bool("random_first", False, "Play the first move randomly.")
 flags.DEFINE_bool("solve", True, "Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, "Don't show the moves as they're played.")
 flags.DEFINE_bool("verbose", False, "Show the MCTS stats of possible moves.")
-flags.DEFINE_integer("max_game_length", 50, "Maximum number of turns", lower_bound=1)
+flags.DEFINE_integer("max_game_length", 100, "Maximum number of turns", lower_bound=1)
 
 FLAGS = flags.FLAGS
 
@@ -65,6 +63,8 @@ def _init_bot(bot_type, game, player_id):
         return uniform_random.UniformRandomBot(player_id, rng)
     if bot_type == "human":
         return human.HumanBot()
+    if bot_type == "naive":
+        return agents.naive.NaiveAgent(player_id, num_actions=game.num_distinct_actions())
     raise ValueError("Invalid bot type: %s" % bot_type)
 
 
@@ -75,30 +75,13 @@ def _get_action(state, action_str):
     return None
 
 
-def _play_game(game, bots, initial_actions):
+def _play_game(game, bots):
     """Plays one game."""
     state = game.new_initial_state()
 
     _opt_print("Initial state:\n{}".format(state))
 
     history = []
-
-    if FLAGS.random_first:
-        assert not initial_actions
-        initial_actions = [state.action_to_string(
-            state.current_player(), np.random.choice(state.legal_actions()))]
-
-    for action_str in initial_actions:
-        action = _get_action(state, action_str)
-        if action is None:
-            sys.exit("Invalid action: {}".format(action_str))
-
-        history.append(action_str)
-        for bot in bots:
-            bot.inform_action(state, state.current_player(), action)
-        state.apply_action(action)
-        _opt_print("Forced action", action_str)
-        _opt_print("Next state:\n{}".format(state))
 
     while not state.is_terminal():
         current_player = state.current_player()
@@ -133,8 +116,7 @@ def _play_game(game, bots, initial_actions):
 
     # Game is now done. Print return for each player
     returns = state.returns()
-    print("Returns:", " ".join(map(str, returns)), ", Game actions:",
-          " ".join(history))
+    print("Returns:", " ".join(map(str, returns)))
 
     for bot in bots:
         bot.restart()
@@ -156,7 +138,7 @@ def main(argv):
     game_num = 0
     try:
         for game_num in range(FLAGS.num_games):
-            returns, history = _play_game(game, bots, argv[1:])
+            returns, history = _play_game(game, bots)
             histories[" ".join(history)] += 1
             for i, v in enumerate(returns):
                 overall_returns[i] += v
@@ -185,7 +167,6 @@ def main(argv):
 
 # print(state)
 # print(state.rewards())
-
 
 if __name__ == "__main__":
     app.run(main)
