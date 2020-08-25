@@ -9,6 +9,9 @@ Move priority:
 
 import numpy as np
 from open_spiel.python import rl_agent
+import pdb
+
+# TODO needs to be pyspiel.Box class
 
 
 class NaiveAgent(rl_agent.AbstractAgent):
@@ -21,11 +24,11 @@ class NaiveAgent(rl_agent.AbstractAgent):
 
     def step(self, time_step, is_evaluation=False):
         # If it is the end of the episode, don't select an action.
-        if time_step.last():
+        if time_step.is_terminal():
             return
 
         # Pick a random legal action.
-        cur_legal_actions = time_step.observations["legal_actions"][self._player_id]
+        cur_legal_actions = time_step.legal_actions(self._player_id)
         # Try each action
         action_rewards = np.zeros(len(cur_legal_actions))
         for i, action in enumerate(cur_legal_actions):
@@ -44,10 +47,10 @@ class NaiveAgent(rl_agent.AbstractAgent):
                 action_rewards[i] = np.min(child_actions_returns)
 
         # Filter actions to best actions
-        best_action_ids = np.argmax(action_rewards)
+        best_action_ids = action_rewards == np.max(action_rewards)
         # Of the best actions, take a random one
         action = cur_legal_actions[np.random.choice(best_action_ids)]
         probs = np.zeros(self._num_actions)
-        probs[cur_legal_actions[best_action_ids]] = 1.0 / len(best_action_ids)
+        probs[np.array(cur_legal_actions)[best_action_ids]] = 1.0 / len(best_action_ids)
 
         return rl_agent.StepOutput(action=action, probs=probs)

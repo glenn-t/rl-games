@@ -8,7 +8,7 @@ from absl import flags
 from absl import app
 import sys
 import collections
-import agents
+from agents.naive import NaiveAgent
 
 importlib.reload(dao)
 
@@ -64,7 +64,7 @@ def _init_bot(bot_type, game, player_id):
     if bot_type == "human":
         return human.HumanBot()
     if bot_type == "naive":
-        return agents.naive.NaiveAgent(player_id, num_actions=game.num_distinct_actions())
+        return NaiveAgent(player_id, num_actions=game.num_distinct_actions())
     raise ValueError("Invalid bot type: %s" % bot_type)
 
 
