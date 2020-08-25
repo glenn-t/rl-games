@@ -11,7 +11,7 @@ import numpy as np
 from open_spiel.python import rl_agent
 import pdb
 
-# TODO needs to be pyspiel.Box class
+# TODO needs to be pyspiel.Bot class
 
 
 class NaiveAgent(rl_agent.AbstractAgent):
