@@ -64,13 +64,11 @@ class NaiveAgent(pyspiel.Bot):
                 # Assign return for action i as worst return of opponent move
                 action_rewards[i] = np.min(child_actions_returns)
 
-        # Filter actions to best actions
+        # Filter actions to best actions (based on one step ahead)
         best_action_ids = action_rewards == np.max(action_rewards)
-        # Of the best actions, take a random one
-        action = cur_legal_actions[np.random.choice(best_action_ids)]
         # Create probability vector
         probs = np.zeros(self._num_actions)
-        # Assign equal probability to each maximum action
+        # Assign equal probability to each best action
         probs[np.array(cur_legal_actions)[best_action_ids]] = 1.0 / np.sum(best_action_ids)
         # Choose a random action based on probabilities
         action = np.random.choice(self._num_actions, p=probs)
