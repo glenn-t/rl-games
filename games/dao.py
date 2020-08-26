@@ -202,7 +202,7 @@ class DaoState(pyspiel.State):
             for i in range(_NUM_ROWS):
                 for j in range(_NUM_COLS):
                     # Check if players piece is on board
-                    if self._board[i, j] == self.get_player_token(self._cur_player):
+                    if self._board[i, j] == _PLAYER_TOKENS[self._cur_player]:
                         current_cell = np.array([i, j])
                         for direction in _DIRECTIONS:
                             cell_to_move_to = current_cell + _DIRECTION_COORDS[direction]
