@@ -27,7 +27,7 @@ _KNOWN_PLAYERS = [
 ]
 
 flags.DEFINE_enum("player1", "naive", _KNOWN_PLAYERS, "Who controls player 1.")
-flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, "Who controls player 2.")
+flags.DEFINE_enum("player2", "naive", _KNOWN_PLAYERS, "Who controls player 2.")
 flags.DEFINE_integer("uct_c", 2, "UCT's exploration constant.")
 flags.DEFINE_integer("rollout_count", 1, "How many rollouts to do.")
 flags.DEFINE_integer("max_simulations", 100, "How many simulations to run.")

@@ -10,9 +10,15 @@ _NUM_COLS = _NUM_ROWS  # Must be square
 _NUM_CELLS = _NUM_ROWS * _NUM_COLS
 _DIRECTIONS = ["UP", "DOWN", "LEFT", "RIGHT", "UP LEFT", "UP RIGHT", "DOWN LEFT", "DOWN RIGHT"]
 _PLAYER_TOKENS = {
-    0: "x",
-    1: "o",
-    None: " "
+    0: 1,
+    1: 2,
+    None: 0
+}
+# _PLAYER_TOKENS_PRINT says if TOKEN is 1, print "x", etc.
+_PLAYER_TOKENS_PRINT = {
+    1: "x",
+    2: "o",
+    0: " "
 }
 _DIRECTION_COORDS = {
     "UP": np.array([-1, 0]),
@@ -399,8 +405,11 @@ class DaoState(pyspiel.State):
     def __str__(self):
         sep = "|"
         out = ""
-        for row in self._board:
-            out = out + sep + sep.join(row) + sep + "\n"
+        for i in range(self._board.shape[0]):
+            out = out + sep
+            for j in range(self._board.shape[1]):
+                out = out + _PLAYER_TOKENS_PRINT[self._board[i, j]] + sep
+            out = out + "\n"
         return(out)
 
     def clone(self):
