@@ -17,5 +17,5 @@ Requirements:
 
   * Docker.
   * The OpenSpiel Docker container must be built on the local system, and tagged `openspiel`. See [here](https://github.com/deepmind/open_spiel/blob/master/docs/install.md) for details. Option 1 (Basic) contains more utilities so is recommended.
-    + For reproducibility, commit `ddce79d1988370ee0b358ddbf03bc3811c8802d7` of the Open Spiel Github repository was used to build the docker image.
+    + For reproducibility, commit `5354afc54d8cb1f96ebc320af16243ac6bdcb0cb` of the Open Spiel Github repository was used to build the docker image.
   * VS Code & [VS Code Remote Containers](https://code.visualstudio.com/docs/remote/containers) extension.
