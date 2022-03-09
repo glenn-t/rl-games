@@ -14,6 +14,7 @@ _PLAYER_TOKENS = {
     1: 2,
     None: 0
 }
+_MAX_LENGTH = 100
 # _PLAYER_TOKENS_PRINT says if TOKEN is 1, print "x", etc.
 _PLAYER_TOKENS_PRINT = {
     1: "x",
@@ -30,6 +31,30 @@ _DIRECTION_COORDS = {
     "DOWN LEFT": np.array([1, -1]),
     "DOWN RIGHT": np.array([1, 1])
 }
+_GAME_TYPE = pyspiel.GameType(
+    short_name="dao",
+    long_name="Dao",
+    dynamics=pyspiel.GameType.Dynamics.SEQUENTIAL,
+    chance_mode=pyspiel.GameType.ChanceMode.DETERMINISTIC,
+    information=pyspiel.GameType.Information.PERFECT_INFORMATION,
+    utility=pyspiel.GameType.Utility.ZERO_SUM,
+    reward_model=pyspiel.GameType.RewardModel.TERMINAL,
+    max_num_players=_NUM_PLAYERS,
+    min_num_players=_NUM_PLAYERS,
+    provides_information_state_string=True,
+    provides_information_state_tensor=False,
+    provides_observation_string=True,
+    provides_observation_tensor=True,
+    parameter_specification={})
+
+_GAME_INFO = pyspiel.GameInfo(
+    num_distinct_actions=_NUM_CELLS,
+    max_chance_outcomes=0,
+    num_players=2,
+    min_utility=-1.0,
+    max_utility=1.0,
+    utility_sum=0.0,
+    max_game_length=_NUM_CELLS)
 
 
 def _create_action_mapping(num_rows, num_cols, directions):
@@ -85,6 +110,7 @@ class DaoState(pyspiel.State):
     """
 
     def __init__(self, game, max_game_length):
+        pyspiel.State.__init__(self, game)
         self._game = game
         self._max_game_length = max_game_length
         self.set_state(
@@ -419,7 +445,7 @@ class DaoState(pyspiel.State):
         return cloned_state
 
 
-class DaoGame(object):
+class DaoGame(pyspiel.Game):
     """Dao
 
     This class implements all the pyspiel.Gae API functions. Please see spiel.h
@@ -434,6 +460,7 @@ class DaoGame(object):
         """
         max_length: maximum game length
         """
+        super().__init__(_GAME_TYPE, _GAME_INFO, params or dict())
         self._max_game_length = max_game_length
 
     def new_initial_state(self):
