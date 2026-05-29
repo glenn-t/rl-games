@@ -1,172 +1,179 @@
-import importlib
-import numpy as np
-import games.dao as dao
-from open_spiel.python.bots import human
-from open_spiel.python.bots import uniform_random
-from open_spiel.python.algorithms import mcts
-from absl import flags
-from absl import app
-import sys
+"""
+Run Dao games between combinations of agents.
+
+Usage:
+    python run_game.py
+    python run_game.py --player1 human --player2 naive
+    python run_game.py --player1 naive --player2 random --num_games 100 --quiet
+"""
+
+import argparse
 import collections
-from agents.naive import NaiveAgent
+import sys
+import numpy as np
 
-importlib.reload(dao)
-
-_KNOWN_PLAYERS = [
-    # A generic Monte Carlo Tree Search agent.
-    "mcts",
-
-    # A generic random agent.
-    "random",
-
-    # You'll be asked to provide the moves.
-    "human",
-
-    # Naive agent - one step look ahead
-    "naive"
-]
-
-flags.DEFINE_enum("player1", "naive", _KNOWN_PLAYERS, "Who controls player 1.")
-flags.DEFINE_enum("player2", "naive", _KNOWN_PLAYERS, "Who controls player 2.")
-flags.DEFINE_integer("uct_c", 2, "UCT's exploration constant.")
-flags.DEFINE_integer("rollout_count", 1, "How many rollouts to do.")
-flags.DEFINE_integer("max_simulations", 100, "How many simulations to run.")
-flags.DEFINE_integer("num_games", 1, "How many games to play.")
-flags.DEFINE_integer("seed", None, "Seed for the random number generator.")
-flags.DEFINE_bool("solve", True, "Whether to use MCTS-Solver.")
-flags.DEFINE_bool("quiet", False, "Don't show the moves as they're played.")
-flags.DEFINE_bool("verbose", False, "Show the MCTS stats of possible moves.")
-flags.DEFINE_integer("max_game_length", 20, "Maximum number of turns", lower_bound=1)
-
-FLAGS = flags.FLAGS
+from games.dao import DaoGame
+from agents.naive import NaiveAgent, INVALID_ACTION
 
 
-def _opt_print(*args, **kwargs):
-    if not FLAGS.quiet:
+# ---------------------------------------------------------------------------
+# Agents
+# ---------------------------------------------------------------------------
+
+class RandomAgent:
+    """Selects uniformly at random from legal actions."""
+
+    def __init__(self, player_id, rng=None):
+        self._player_id = player_id
+        self._rng = rng or np.random.default_rng()
+
+    def player_id(self):
+        return self._player_id
+
+    def step(self, state):
+        actions = state.legal_actions(self._player_id)
+        if not actions:
+            return INVALID_ACTION
+        return self._rng.choice(actions)
+
+
+class HumanAgent:
+    """Prompts the user to enter a move."""
+
+    def __init__(self, player_id):
+        self._player_id = player_id
+
+    def player_id(self):
+        return self._player_id
+
+    def step(self, state):
+        legal = state.legal_actions(self._player_id)
+        print("\nLegal actions:")
+        for action in legal:
+            print(f"  {action}: {state.action_to_string(action, self._player_id)}")
+        while True:
+            try:
+                choice = int(input("Enter action ID: ").strip())
+                if choice in legal:
+                    return choice
+                print("Not a legal action, try again.")
+            except ValueError:
+                print("Please enter a number.")
+
+
+# ---------------------------------------------------------------------------
+# Bot factory
+# ---------------------------------------------------------------------------
+
+def _make_agent(agent_type, player_id, game, rng):
+    if agent_type == "naive":
+        return NaiveAgent(player_id, num_actions=game.num_distinct_actions())
+    if agent_type == "random":
+        return RandomAgent(player_id, rng=rng)
+    if agent_type == "human":
+        return HumanAgent(player_id)
+    raise ValueError(f"Unknown agent type: {agent_type}")
+
+
+# ---------------------------------------------------------------------------
+# Game loop
+# ---------------------------------------------------------------------------
+
+def _opt_print(quiet, *args, **kwargs):
+    if not quiet:
         print(*args, **kwargs)
 
 
-def _init_bot(bot_type, game, player_id):
-    """Initializes a bot by type."""
-    rng = np.random.RandomState(FLAGS.seed)
-    if bot_type == "mcts":
-        evaluator = mcts.RandomRolloutEvaluator(FLAGS.rollout_count, rng)
-        return mcts.MCTSBot(
-            game,
-            FLAGS.uct_c,
-            FLAGS.max_simulations,
-            evaluator,
-            random_state=rng,
-            solve=FLAGS.solve,
-            verbose=FLAGS.verbose)
-    if bot_type == "random":
-        return uniform_random.UniformRandomBot(player_id, rng)
-    if bot_type == "human":
-        return human.HumanBot()
-    if bot_type == "naive":
-        return NaiveAgent(player_id, num_actions=game.num_distinct_actions())
-    raise ValueError("Invalid bot type: %s" % bot_type)
-
-
-def _get_action(state, action_str):
-    for action in state.legal_actions():
-        if action_str == state.action_to_string(state.current_player(), action):
-            return action
-    return None
-
-
-def _play_game(game, bots):
-    """Plays one game."""
+def play_game(game, agents, quiet=False):
+    """Plays one game and returns (returns, history)."""
     state = game.new_initial_state()
-
-    _opt_print("Initial state:\n{}".format(state))
+    _opt_print(quiet, f"Initial state:\n{state}\n")
 
     history = []
 
     while not state.is_terminal():
         current_player = state.current_player()
-        # The state can be three different types: chance node,
-        # simultaneous node, or decision node
-        if state.is_chance_node():
-            # Chance node: sample an outcome
-            outcomes = state.chance_outcomes()
-            num_actions = len(outcomes)
-            _opt_print("Chance node, got " + str(num_actions) + " outcomes")
-            action_list, prob_list = zip(*outcomes)
-            action = np.random.choice(action_list, p=prob_list)
-            action_str = state.action_to_string(current_player, action)
-            _opt_print("Sampled action: ", action_str)
-        elif state.is_simultaneous_node():
-            raise ValueError("Game cannot have simultaneous nodes.")
-        else:
-            # Decision node: sample action for the single current player
-            bot = bots[current_player]
-            action = bot.step(state)
-            action_str = state.action_to_string(current_player, action)
-            _opt_print("Player {} sampled action: {}".format(current_player,
-                                                             action_str))
+        agent = agents[current_player]
+        action = agent.step(state)
 
-        for i, bot in enumerate(bots):
-            if i != current_player:
-                bot.inform_action(state, current_player, action)
-        history.append(action_str)
+        if action == INVALID_ACTION:
+            raise RuntimeError(f"Agent for player {current_player} returned INVALID_ACTION")
+
+        action_str = state.action_to_string(action, current_player)
+        _opt_print(quiet, f"Player {current_player} ({type(agent).__name__}): {action_str}")
+
         state.apply_action(action)
+        history.append(action_str)
 
-        _opt_print("Next state:\n{}".format(state))
+        _opt_print(quiet, f"\n{state}\n")
 
-    # Game is now done. Print return for each player
     returns = state.returns()
-    print("Returns:", " ".join(map(str, returns)))
-
-    for bot in bots:
-        bot.restart()
+    winner = state.winner()
+    if winner is not None:
+        _opt_print(quiet, f"Player {winner} wins. Returns: {returns}")
+    else:
+        _opt_print(quiet, f"Draw (max game length reached). Returns: {returns}")
 
     return returns, history
 
 
-def main(argv):
-    game = dao.DaoGame(FLAGS.max_game_length)
-    if game.num_players() > 2:
-        sys.exit("This game requires more players than the example can handle.")
-    bots = [
-        _init_bot(FLAGS.player1, game, 0),
-        _init_bot(FLAGS.player2, game, 1),
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(description="Play Dao between agents.")
+    parser.add_argument("--player1", default="naive",
+                        choices=["naive", "random", "human"],
+                        help="Agent type for player 0")
+    parser.add_argument("--player2", default="naive",
+                        choices=["naive", "random", "human"],
+                        help="Agent type for player 1")
+    parser.add_argument("--num_games", type=int, default=1,
+                        help="Number of games to play")
+    parser.add_argument("--max_game_length", type=int, default=200,
+                        help="Maximum number of turns before draw")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Random seed")
+    parser.add_argument("--quiet", action="store_true",
+                        help="Suppress per-move output")
+    args = parser.parse_args()
+
+    rng = np.random.default_rng(args.seed)
+    game = DaoGame(max_game_length=args.max_game_length)
+
+    agents = [
+        _make_agent(args.player1, 0, game, rng),
+        _make_agent(args.player2, 1, game, rng),
     ]
+
     histories = collections.defaultdict(int)
-    overall_returns = [0, 0]
+    overall_returns = [0.0, 0.0]
     overall_wins = [0, 0]
-    game_num = 0
+    draws = 0
+
     try:
-        for game_num in range(FLAGS.num_games):
-            returns, history = _play_game(game, bots)
+        for game_num in range(args.num_games):
+            returns, history = play_game(game, agents, quiet=args.quiet)
             histories[" ".join(history)] += 1
             for i, v in enumerate(returns):
                 overall_returns[i] += v
                 if v > 0:
                     overall_wins[i] += 1
-    except (KeyboardInterrupt, EOFError):
-        game_num -= 1
-        print("Caught a KeyboardInterrupt, stopping early.")
-    print("Number of games played:", game_num + 1)
-    print("Number of distinct games played:", len(histories))
-    print("Players:", FLAGS.player1, FLAGS.player2)
-    print("Overall wins", overall_wins)
-    print("Overall returns", overall_returns)
+            if all(v == 0 for v in returns):
+                draws += 1
 
+    except KeyboardInterrupt:
+        print("\nStopped early.")
 
-# game = dao.DaoGame(max_game_length=100)
-# state = game.new_initial_state()
-# print(state)
+    print("\n--- Results ---")
+    print(f"Games played:        {args.num_games}")
+    print(f"Distinct games:      {len(histories)}")
+    print(f"Players:             {args.player1} (p0) vs {args.player2} (p1)")
+    print(f"Wins [p0, p1]:       {overall_wins}")
+    print(f"Draws:               {draws}")
+    print(f"Total returns [p0, p1]: {overall_returns}")
 
-# possible_actions = state.legal_actions()
-# action_id = np.random.choice(possible_actions)
-# state.apply_action(action_id)
-# print(state)
-# state.undo_action(action_id)
-# print(state)
-
-# print(state)
-# print(state.rewards())
 
 if __name__ == "__main__":
-    app.run(main)
+    main()
