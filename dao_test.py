@@ -14,27 +14,7 @@ import numpy as np
 
 from games.dao import DaoGame
 from agents.naive import NaiveAgent, INVALID_ACTION
-
-
-# ---------------------------------------------------------------------------
-# Agents
-# ---------------------------------------------------------------------------
-
-class RandomAgent:
-    """Selects uniformly at random from legal actions."""
-
-    def __init__(self, player_id, rng=None):
-        self._player_id = player_id
-        self._rng = rng or np.random.default_rng()
-
-    def player_id(self):
-        return self._player_id
-
-    def step(self, state):
-        actions = state.legal_actions(self._player_id)
-        if not actions:
-            return INVALID_ACTION
-        return self._rng.choice(actions)
+from agents.random import RandomAgent
 
 
 class HumanAgent:

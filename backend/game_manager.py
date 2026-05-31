@@ -11,24 +11,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from games.dao import DaoGame, DaoState
 from agents.naive import NaiveAgent, INVALID_ACTION
+from agents.random import RandomAgent
 import numpy as np
-
-
-class RandomAgent:
-    """Random agent for AI gameplay."""
-    
-    def __init__(self, player_id, rng=None):
-        self._player_id = player_id
-        self._rng = rng or np.random.default_rng()
-    
-    def player_id(self):
-        return self._player_id
-    
-    def step(self, state):
-        actions = state.legal_actions(self._player_id)
-        if not actions:
-            return INVALID_ACTION
-        return self._rng.choice(actions)
 
 
 class GameSession:

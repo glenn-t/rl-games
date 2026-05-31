@@ -1,129 +1,128 @@
-# Glenn Thomas
-# 2020-09-21
+"""Dao state hasher and canonical state dictionary for Q-learning.
 
-"""Dao state hasher"""
+Canonical state: the minimum-hash representative over all equivalent states
+produced by the 8 board symmetries (4 rotations × flip) and player swap
+(exchanging token values 1 and 2). This collapses 16 raw states into one,
+reducing the Q-table size by up to 16×.
 
-# Two main approaches
-# 1) Create a class, when initialised creates a dictionary that is accessible
-# 2) Essentially create an object when imported
+Usage:
+    from games.dao_hash import canonical_index, N_CANONICAL_STATES
+
+    idx = canonical_index(state._board.flatten())  # int in [0, N_CANONICAL_STATES)
+"""
+
+from itertools import combinations
 
 import numpy as np
 import games.dao as dao
-import pdb
 
-PIECES_PER_PLAYER = 1  # TODO CHANGE TO 4
-
-
-class DaoStateHasher():
-
-    def __init__(self):
-        """Creates a DaoState Hasher"""
-
-        # Create a board
-        game = dao.DaoGame(20)
-        dao_state = game.new_initial_state()
-        board = dao_state._board
-        board[:] = dao._PLAYER_TOKENS[None]
-        board = board.flatten()
-
-        remaining_pieces = {}
-        for key, val in dao._PLAYER_TOKENS.items():
-            if key is not None:
-                remaining_pieces[val] = PIECES_PER_PLAYER
-
-        self.all_states = _place_next_piece(board, remaining_pieces)
-
-# Helper functions
+PIECES_PER_PLAYER = 4
+_BOARD_SIZE = 16  # 4×4 flattened
+_BASE = 3         # tokens are 0, 1, 2
 
 
-def _hash_dao_state(state_array):
-    """Takes a Dao state and converts it to a unique number
+# ---------------------------------------------------------------------------
+# Hashing
+# ---------------------------------------------------------------------------
 
-    Params:
-    state_array: a flattened numpy array (of integers) representing the Dao
-      state (must be 0, 1, 2)
+def _hash(state_array: np.ndarray) -> int:
+    """Treat the flattened board as a base-3 number."""
+    powers = np.power(_BASE, np.arange(_BOARD_SIZE - 1, -1, -1))
+    return int(np.sum(state_array * powers))
 
-    Details: The hash is done by treating the array as a 16 digit base 3 number,
-    then translting it base 10.
+
+# ---------------------------------------------------------------------------
+# Symmetry transformations
+# ---------------------------------------------------------------------------
+
+def _all_symmetries(state_array: np.ndarray):
+    """Yield all 16 equivalent boards (8 spatial × player swap)."""
+    mat = state_array.reshape(4, 4)
+    for flipped in (mat, np.fliplr(mat)):
+        rotated = flipped
+        for _ in range(4):
+            rotated = np.rot90(rotated)
+            flat = rotated.flatten()
+            yield flat
+            # Player swap: 1 <-> 2, 0 stays 0
+            swapped = flat.copy()
+            swapped[flat == 1] = 2
+            swapped[flat == 2] = 1
+            yield swapped
+
+
+def canonical_state(state_array: np.ndarray) -> np.ndarray:
+    """Return the canonical (minimum-hash) representative of a board state."""
+    best = min(_all_symmetries(state_array), key=_hash)
+    return best
+
+
+# ---------------------------------------------------------------------------
+# Enumerate all reachable boards
+# ---------------------------------------------------------------------------
+
+def _enumerate_boards() -> list:
+    """Return all boards reachable by placing PIECES_PER_PLAYER tokens per player."""
+    positions = range(_BOARD_SIZE)
+    results = []
+    for p1_pos in combinations(positions, PIECES_PER_PLAYER):
+        remaining = [p for p in positions if p not in p1_pos]
+        for p2_pos in combinations(remaining, PIECES_PER_PLAYER):
+            b = np.zeros(_BOARD_SIZE, dtype=np.int8)
+            b[list(p1_pos)] = 1
+            b[list(p2_pos)] = 2
+            results.append(b)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Build canonical state lookup table
+# ---------------------------------------------------------------------------
+
+def _build_lookup() -> tuple[dict, int]:
+    """Build {raw_hash: canonical_index} over all reachable boards.
+
+    Returns (lookup_dict, n_canonical_states).
     """
+    all_boards = _enumerate_boards()
 
-    # assert np.all(np.isin(state_array, [0, 1, 2])
-    column_values = np.power(3, np.arange(16, 0, -1))
-    result = np.sum(state_array * column_values)
-    return(result)
+    # Map each canonical hash to a stable index
+    canonical_hash_to_index: dict[int, int] = {}
+    lookup: dict[int, int] = {}
 
+    for board in all_boards:
+        raw_h = _hash(board)
+        if raw_h in lookup:
+            continue
+        canon = canonical_state(board)
+        canon_h = _hash(canon)
+        if canon_h not in canonical_hash_to_index:
+            canonical_hash_to_index[canon_h] = len(canonical_hash_to_index)
+        idx = canonical_hash_to_index[canon_h]
+        # Register every symmetry of this board so any equivalent state hits the cache
+        for sym in _all_symmetries(board):
+            h = _hash(sym)
+            if h not in lookup:
+                lookup[h] = idx
 
-def _place_next_piece(board, remaining_pieces):
-    """Recursive function that gets all Dao states"""
-    state_list = []
-    total_pieces_remaining = np.sum(list(remaining_pieces.values()))
-
-    # Identify the last piece of this colour
-    last_piece = np.where(board != dao._PLAYER_TOKENS[None])
-    if np.any(last_piece):
-        last_piece = np.max(last_piece)
-    else:
-        last_piece = 0
-
-    for piece, n_remaining in remaining_pieces.items():
-        if n_remaining > 0:
-            remaining_pieces_copy = remaining_pieces.copy()
-            remaining_pieces_copy[piece] += -1
-
-            # place a piece in all possible positions after the last piece
-            for i in range(last_piece, board.shape[0]):
-                if board[i] == dao._PLAYER_TOKENS[None]:
-                    board_copy = board.copy()
-                    board_copy[i] = piece
-
-                    if total_pieces_remaining > 1:
-                        # There is still another piece to place
-                        new_states = _place_next_piece(board_copy, remaining_pieces_copy)
-                        state_list = state_list + new_states
-                    else:
-                        # No more pieces to place
-                        state_list = state_list + [board_copy]
-
-    return(state_list)
+    return lookup, len(canonical_hash_to_index)
 
 
-def find_cannonical_state(state_array):
-    """Finds the cannonical state of a given state array.
+_LOOKUP, N_CANONICAL_STATES = _build_lookup()
 
-    Params:
-    state_array: flattened numpy array containing 0, 1 or 2.
 
-    Return:
-    The cannonical state (equivalent state)
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
-    Details:
-    Takes a state array, generates all equivalant states, and takes the one
-    with the lowest hast.
+def canonical_index(state_array: np.ndarray) -> int:
+    """Return the canonical index for a flattened board state.
+
+    Args:
+        state_array: 1-D int array of length 16 with values in {0, 1, 2}.
+
+    Returns:
+        Integer in [0, N_CANONICAL_STATES).
     """
-
-    # Set up tracking
-    cannonical_state = state_array
-    cannonical_hash = _hash_dao_state(state_array)
-
-    # Convert to matrix
-    state_matrix = np.reshape(state_array, (4, 4))
-
-    # Try regular and flipped board
-    for flip in [False, True]:
-        if flip:
-            state_matrix = np.flip(state_matrix)
-
-        # For each, get all four rotations
-        for i in range(4):
-            state_matrix = np.rot90(state_matrix)
-            state_array = state_matrix.flatten()
-            state_hash = _hash_dao_state(state_array)
-            if state_hash < cannonical_hash:
-                # Cannonical state is one with lowest hash
-                cannonical_state = state_array
-                cannonical_hash = state_hash
-    return(cannonical_state)
-
-
-state_hasher = DaoStateHasher()
-len(state_hasher.all_states)
+    h = _hash(state_array)
+    return _LOOKUP[h]
