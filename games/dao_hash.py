@@ -25,10 +25,12 @@ _BASE = 3         # tokens are 0, 1, 2
 # Hashing
 # ---------------------------------------------------------------------------
 
+_HASH_POWERS = np.int64(_BASE) ** np.arange(_BOARD_SIZE - 1, -1, -1, dtype=np.int64)
+
+
 def _hash(state_array: np.ndarray) -> int:
     """Treat the flattened board as a base-3 number."""
-    powers = np.power(_BASE, np.arange(_BOARD_SIZE - 1, -1, -1))
-    return int(np.sum(state_array * powers))
+    return int(np.dot(state_array, _HASH_POWERS))
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +110,17 @@ def _build_lookup() -> tuple[dict, int]:
     return lookup, len(canonical_hash_to_index)
 
 
-_LOOKUP, N_CANONICAL_STATES = _build_lookup()
+import pickle as _pickle
+from pathlib import Path as _Path
+
+_CACHE_PATH = _Path(__file__).parent / "dao_hash_cache.pkl"
+if _CACHE_PATH.exists():
+    with open(_CACHE_PATH, "rb") as _f:
+        _LOOKUP, N_CANONICAL_STATES = _pickle.load(_f)
+else:
+    _LOOKUP, N_CANONICAL_STATES = _build_lookup()
+    with open(_CACHE_PATH, "wb") as _f:
+        _pickle.dump((_LOOKUP, N_CANONICAL_STATES), _f)
 
 
 # ---------------------------------------------------------------------------

@@ -9,16 +9,16 @@ class NewGameRequest(BaseModel):
     mode: Literal["human_vs_human", "human_vs_ai", "ai_vs_ai"] = Field(
         ..., description="Game mode"
     )
-    ai_agent: Optional[Literal["naive", "random"]] = Field(
+    ai_agent: Optional[Literal["naive", "random", "afterstate"]] = Field(
         None, description="AI agent type for player 1 (required if mode is human_vs_ai or ai_vs_ai)"
     )
     ai_player: Optional[Literal[0, 1]] = Field(
         1, description="Which player is AI in human_vs_ai mode (0 or 1, default 1)"
     )
-    ai_agent_player0: Optional[Literal["naive", "random"]] = Field(
+    ai_agent_player0: Optional[Literal["naive", "random", "afterstate"]] = Field(
         None, description="AI agent type for player 0 in ai_vs_ai mode"
     )
-    ai_agent_player1: Optional[Literal["naive", "random"]] = Field(
+    ai_agent_player1: Optional[Literal["naive", "random", "afterstate"]] = Field(
         None, description="AI agent type for player 1 in ai_vs_ai mode"
     )
 

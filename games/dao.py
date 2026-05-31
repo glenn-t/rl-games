@@ -44,6 +44,8 @@ def _create_action_mapping(num_rows, num_cols, directions):
 
 
 _ACTIONID_TO_ACTION, _ACTION_TO_ACTIONID = _create_action_mapping(_NUM_ROWS, _NUM_COLS, _DIRECTION_COORDS.keys())
+# Plain-Python tuples for hot paths — avoids numpy array creation per step
+_DIRECTION_TUPLES = {name: (int(v[0]), int(v[1])) for name, v in _DIRECTION_COORDS.items()}
 _CORNER_COORDS = [(0, 0), (0, _NUM_COLS - 1), (_NUM_ROWS - 1, 0), (_NUM_ROWS - 1, _NUM_COLS - 1)]
 _CORNER_COORDS_ADJACENT = {
     (0, 0): [(0, 1), (1, 1), (1, 0)],
@@ -117,13 +119,14 @@ class DaoState:
         self._board = board
 
     def clone(self):
-        cloned = DaoState(self._game, self._max_game_length)
-        cloned.set_state(
-            self._cur_player,
-            self._winner,
-            self._is_terminal,
-            self._history[:],
-            np.array(self._board))
+        cloned = object.__new__(DaoState)
+        cloned._game = self._game
+        cloned._max_game_length = self._max_game_length
+        cloned._cur_player = self._cur_player
+        cloned._winner = self._winner
+        cloned._is_terminal = self._is_terminal
+        cloned._history = self._history[:]
+        cloned._board = self._board.copy()
         return cloned
 
     # ------------------------------------------------------------------
@@ -146,56 +149,94 @@ class DaoState:
     # ------------------------------------------------------------------
 
     def check_victory(self):
-        """Returns the player_id of the winning player, or None."""
-        winner = self.line_exists()
-        if winner is None:
-            winner = self.square_exists()
-        if winner is None:
-            winner = self.corner_exists()
-        if winner is None:
-            winner = self.corner_blocked()
+        """Returns the player_id of the winning player, or None.
 
-        if winner is not None:
-            return [key for key, value in _PLAYER_TOKENS.items() if value == winner][0]
+        Inlines all win conditions with plain Python ints (via tolist()) to
+        avoid numpy scalar boxing overhead on the hot path.
+        """
+        ((a, b, c, d),
+         (e, f, g, h),
+         (i, j, k, l),
+         (m, n, o, p)) = self._board.tolist()
+
+        for t in (1, 2):
+            v = 3 - t  # opponent token
+            # Rows
+            if a==t and b==t and c==t and d==t: return t - 1
+            if e==t and f==t and g==t and h==t: return t - 1
+            if i==t and j==t and k==t and l==t: return t - 1
+            if m==t and n==t and o==t and p==t: return t - 1
+            # Columns
+            if a==t and e==t and i==t and m==t: return t - 1
+            if b==t and f==t and j==t and n==t: return t - 1
+            if c==t and g==t and k==t and o==t: return t - 1
+            if d==t and h==t and l==t and p==t: return t - 1
+            # 2×2 squares
+            if a==t and b==t and e==t and f==t: return t - 1
+            if b==t and c==t and f==t and g==t: return t - 1
+            if c==t and d==t and g==t and h==t: return t - 1
+            if e==t and f==t and i==t and j==t: return t - 1
+            if f==t and g==t and j==t and k==t: return t - 1
+            if g==t and h==t and k==t and l==t: return t - 1
+            if i==t and j==t and m==t and n==t: return t - 1
+            if j==t and k==t and n==t and o==t: return t - 1
+            if k==t and l==t and o==t and p==t: return t - 1
+            # All four corners
+            if a==t and d==t and m==t and p==t: return t - 1
+            # Corner blocked: player t trapped, all 3 adjacent cells = opponent
+            # (0,0) adjacent: (0,1),(1,0),(1,1)
+            if a==t and b==v and e==v and f==v: return t - 1
+            # (0,3) adjacent: (0,2),(1,3),(1,2)
+            if d==t and c==v and h==v and g==v: return t - 1
+            # (3,0) adjacent: (2,0),(3,1),(2,1)
+            if m==t and i==v and n==v and j==v: return t - 1
+            # (3,3) adjacent: (2,3),(3,2),(2,2)
+            if p==t and l==v and o==v and k==v: return t - 1
         return None
 
     def line_exists(self):
         """Returns the token value of any player with a full row or column, else None."""
-        for i in range(_NUM_ROWS):
-            for p in range(_NUM_PLAYERS):
-                if np.all(self._board[i, :] == _PLAYER_TOKENS[p]):
-                    return _PLAYER_TOKENS[p]
-        for i in range(_NUM_COLS):
-            for p in range(_NUM_PLAYERS):
-                if np.all(self._board[:, i] == _PLAYER_TOKENS[p]):
-                    return _PLAYER_TOKENS[p]
+        b = self._board
+        for t in (1, 2):
+            for i in range(4):
+                if b[i,0]==t and b[i,1]==t and b[i,2]==t and b[i,3]==t:
+                    return t
+            for j in range(4):
+                if b[0,j]==t and b[1,j]==t and b[2,j]==t and b[3,j]==t:
+                    return t
         return None
 
     def square_exists(self):
         """Returns the token value of any player with a 2x2 square, else None."""
-        for i in range(_NUM_ROWS - 1):
-            for j in range(_NUM_COLS - 1):
-                for p in range(_NUM_PLAYERS):
-                    if np.all(self._board[i:(i + 2), j:(j + 2)] == _PLAYER_TOKENS[p]):
-                        return _PLAYER_TOKENS[p]
+        b = self._board
+        for t in (1, 2):
+            for i in range(3):
+                for j in range(3):
+                    if b[i,j]==t and b[i,j+1]==t and b[i+1,j]==t and b[i+1,j+1]==t:
+                        return t
         return None
 
     def corner_exists(self):
         """Returns the token value of any player occupying all four corners, else None."""
-        corner_tokens = np.array([self._board[coord] for coord in _CORNER_COORDS])
-        for p in range(_NUM_PLAYERS):
-            if np.all(corner_tokens == _PLAYER_TOKENS[p]):
-                return _PLAYER_TOKENS[p]
+        b = self._board
+        for t in (1, 2):
+            if b[0,0]==t and b[0,3]==t and b[3,0]==t and b[3,3]==t:
+                return t
         return None
 
     def corner_blocked(self):
         """Returns the token value of any player trapped in a corner by the opponent, else None."""
-        for p in range(_NUM_PLAYERS):
-            for coord in _CORNER_COORDS:
-                if self._board[coord] == _PLAYER_TOKENS[p]:
-                    surrounds = np.array([self._board[adj] for adj in _CORNER_COORDS_ADJACENT[coord]])
-                    if np.all(surrounds == _PLAYER_TOKENS[1 - p]):
-                        return _PLAYER_TOKENS[p]
+        b = self._board
+        for t in (1, 2):
+            opp = 3 - t
+            if b[0,0]==t and b[0,1]==opp and b[1,0]==opp and b[1,1]==opp:
+                return t
+            if b[0,3]==t and b[0,2]==opp and b[1,3]==opp and b[1,2]==opp:
+                return t
+            if b[3,0]==t and b[2,0]==opp and b[3,1]==opp and b[2,1]==opp:
+                return t
+            if b[3,3]==t and b[2,3]==opp and b[3,2]==opp and b[2,2]==opp:
+                return t
         return None
 
     # ------------------------------------------------------------------
@@ -209,16 +250,16 @@ class DaoState:
         if self.is_terminal():
             return []
 
+        token = _PLAYER_TOKENS[self._cur_player]
+        b = self._board
         actions = []
         for i in range(_NUM_ROWS):
             for j in range(_NUM_COLS):
-                if self._board[i, j] == _PLAYER_TOKENS[self._cur_player]:
-                    current_cell = np.array([i, j])
-                    for direction in _DIRECTIONS:
-                        cell_to_move_to = current_cell + _DIRECTION_COORDS[direction]
-                        if np.all(cell_to_move_to >= 0) and np.all(cell_to_move_to < _NUM_ROWS):
-                            if self._board[cell_to_move_to[0], cell_to_move_to[1]] == _PLAYER_TOKENS[None]:
-                                actions.append(_ACTION_TO_ACTIONID[(i, j, direction)])
+                if b[i, j] == token:
+                    for direction, (dr, dc) in _DIRECTION_TUPLES.items():
+                        ni, nj = i + dr, j + dc
+                        if 0 <= ni < _NUM_ROWS and 0 <= nj < _NUM_COLS and b[ni, nj] == 0:
+                            actions.append(_ACTION_TO_ACTIONID[(i, j, direction)])
         return actions
 
     def legal_actions_mask(self, player=None):
@@ -235,27 +276,19 @@ class DaoState:
 
     def apply_action(self, action):
         """Applies an action (by action ID) to the state, mutating it in place."""
-        assert action in self.legal_actions(), f"Illegal action: {action}"
-
         row, col, direction = _ACTIONID_TO_ACTION[action]
-        current_cell = np.array([row, col])
-        direction_vector = _DIRECTION_COORDS[direction]
+        dr, dc = _DIRECTION_TUPLES[direction]
+        b = self._board
 
-        # Lift piece
-        self._board[row, col] = _PLAYER_TOKENS[None]
+        b[row, col] = 0  # lift piece
+        r, c = row, col
+        while True:
+            nr, nc = r + dr, c + dc
+            if nr < 0 or nc < 0 or nr >= _NUM_ROWS or nc >= _NUM_COLS or b[nr, nc] != 0:
+                break
+            r, c = nr, nc
+        b[r, c] = _PLAYER_TOKENS[self._cur_player]
 
-        # Slide until blocked
-        blocked = False
-        while not blocked:
-            next_cell = current_cell + direction_vector
-            blocked = np.any(next_cell < 0) or np.any(next_cell >= _NUM_ROWS)
-            if not blocked:
-                blocked = self._board[next_cell[0], next_cell[1]] != _PLAYER_TOKENS[None]
-            if not blocked:
-                current_cell = next_cell
-
-        # Place piece
-        self._board[current_cell[0], current_cell[1]] = _PLAYER_TOKENS[self._cur_player]
         self._history.append(action)
 
         winner = self.check_victory()
@@ -272,6 +305,26 @@ class DaoState:
         cloned = self.clone()
         cloned.apply_action(action)
         return cloned
+
+    def board_after_action(self, action) -> np.ndarray:
+        """Returns a board copy with action applied — cheaper than child() for value lookup.
+
+        Skips history copy and terminal check. Only use when you need the
+        resulting board array, not a full game state.
+        """
+        row, col, direction = _ACTIONID_TO_ACTION[action]
+        dr, dc = _DIRECTION_TUPLES[direction]
+
+        board = self._board.copy()
+        board[row, col] = 0  # lift piece
+        r, c = row, col
+        while True:
+            nr, nc = r + dr, c + dc
+            if nr < 0 or nc < 0 or nr >= _NUM_ROWS or nc >= _NUM_COLS or board[nr, nc] != 0:
+                break
+            r, c = nr, nc
+        board[r, c] = _PLAYER_TOKENS[self._cur_player]
+        return board
 
     def undo_action(self, action):
         """Reverses the last action. Assumes action was the most recent move."""

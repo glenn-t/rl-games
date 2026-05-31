@@ -12,6 +12,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from games.dao import DaoGame, DaoState
 from agents.naive import NaiveAgent, INVALID_ACTION
 from agents.random import RandomAgent
+from agents.afterstate_agent import AfterstateAgent
+
+_W_TABLE_PATH = "trained_models/w_table.npy"
 import numpy as np
 
 
@@ -96,6 +99,8 @@ class GameManager:
                 )
             elif ai_agent_type == "random":
                 ai_agent = RandomAgent(player_id=ai_player)
+            elif ai_agent_type == "afterstate":
+                ai_agent = AfterstateAgent.load(ai_player, _W_TABLE_PATH)
             else:
                 raise ValueError(f"Unknown agent type: {ai_agent_type}")
         
@@ -109,6 +114,8 @@ class GameManager:
                     )
                 elif ai_agent_player0_type == "random":
                     ai_agent_player0 = RandomAgent(player_id=0)
+                elif ai_agent_player0_type == "afterstate":
+                    ai_agent_player0 = AfterstateAgent.load(0, _W_TABLE_PATH)
                 else:
                     raise ValueError(f"Unknown agent type: {ai_agent_player0_type}")
             
@@ -120,6 +127,8 @@ class GameManager:
                     )
                 elif ai_agent_player1_type == "random":
                     ai_agent_player1 = RandomAgent(player_id=1)
+                elif ai_agent_player1_type == "afterstate":
+                    ai_agent_player1 = AfterstateAgent.load(1, _W_TABLE_PATH)
                 else:
                     raise ValueError(f"Unknown agent type: {ai_agent_player1_type}")
         
@@ -268,6 +277,11 @@ class GameManager:
                 "id": "random",
                 "name": "Random Agent",
                 "description": "Selects moves uniformly at random from legal actions"
+            },
+            {
+                "id": "afterstate",
+                "name": "Afterstate Agent",
+                "description": "Trained afterstate value function (TD learning with curriculum + self-play)"
             }
         ]
 

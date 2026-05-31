@@ -19,3 +19,6 @@ Requirements:
   * The OpenSpiel Docker container must be built on the local system, and tagged `openspiel`. See [here](https://github.com/deepmind/open_spiel/blob/master/docs/install.md) for details. Option 1 (Basic) contains more utilities so is recommended.
     + For reproducibility, commit `5354afc54d8cb1f96ebc320af16243ac6bdcb0cb` of the Open Spiel Github repository was used to build the docker image.
   * VS Code & [VS Code Remote Containers](https://code.visualstudio.com/docs/remote/containers) extension.
+
+
+uv run python -m agents.afterstate_trainer --curriculum 10 --selfplay 10 --eval-every 1 --output trained_models/w_table.npy

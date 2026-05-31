@@ -15,6 +15,7 @@ import numpy as np
 from games.dao import DaoGame
 from agents.naive import NaiveAgent, INVALID_ACTION
 from agents.random import RandomAgent
+from agents.afterstate_agent import AfterstateAgent
 
 
 class HumanAgent:
@@ -52,6 +53,8 @@ def _make_agent(agent_type, player_id, game, rng):
         return RandomAgent(player_id, rng=rng)
     if agent_type == "human":
         return HumanAgent(player_id)
+    if agent_type == "afterstate":
+        return AfterstateAgent.load(player_id, "trained_models/w_table.npy")
     raise ValueError(f"Unknown agent type: {agent_type}")
 
 
@@ -81,9 +84,9 @@ def play_game(game, agents, quiet=False):
 
         action_str = state.action_to_string(action, current_player)
         _opt_print(quiet, f"Player {current_player} ({type(agent).__name__}): {action_str}")
+        print(len(state._history))
 
         state.apply_action(action)
-        history.append(action_str)
 
         _opt_print(quiet, f"\n{state}\n")
 
@@ -104,10 +107,10 @@ def play_game(game, agents, quiet=False):
 def main():
     parser = argparse.ArgumentParser(description="Play Dao between agents.")
     parser.add_argument("--player1", default="naive",
-                        choices=["naive", "random", "human"],
+                        choices=["naive", "random", "human", "afterstate"],
                         help="Agent type for player 0")
     parser.add_argument("--player2", default="naive",
-                        choices=["naive", "random", "human"],
+                        choices=["naive", "random", "human", "afterstate"],
                         help="Agent type for player 1")
     parser.add_argument("--num_games", type=int, default=1,
                         help="Number of games to play")

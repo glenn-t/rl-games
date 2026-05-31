@@ -159,3 +159,7 @@ dist-ssr/
 
 # UV (Python package manager)
 .uv/
+
+# RL training artifacts
+games/dao_hash_cache.pkl
+trained_models/
