@@ -18,6 +18,11 @@ class AfterstateAgent:
     def __init__(self, player_id: int, w_table: np.ndarray):
         self._player_id = player_id
         self._w = w_table  # shape (N_CANONICAL_STATES,)
+        # slight issue is that the terminal states are set to -1
+        # check the transition of the learning agent
+        # positive w means player 0 advantage, negative w means player 1 advantage
+        if self._player_id == 1:
+            self._w = self._w * -1
 
     def player_id(self) -> int:
         return self._player_id

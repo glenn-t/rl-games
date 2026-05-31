@@ -67,6 +67,8 @@ def _update_w_mc(steps, returns, w_table, alpha, gamma):
     for p in range(2):
         p_indices = [idx for (idx, pl) in steps if pl == p]
         r_terminal = float(returns[p])
+        if p == 1:
+            r_terminal = r_terminal * -1
         n = len(p_indices)
         for k, idx in enumerate(p_indices):
             target = (gamma ** (n - 1 - k)) * r_terminal
@@ -81,6 +83,8 @@ def _update_w_td(steps, returns, w_table, alpha, gamma):
     for p in range(2):
         p_indices = [idx for (idx, pl) in steps if pl == p]
         r_terminal = float(returns[p])
+        if p == 1:
+            r_terminal = r_terminal * -1
         for i in range(len(p_indices) - 1, -1, -1):
             idx = p_indices[i]
             if i == len(p_indices) - 1:
@@ -274,7 +278,8 @@ def train(
                         best_w = -np.inf
                         for a in legal:
                             idx = _afterstate_idx(state, a)
-                            w = w_table[idx]
+                            # multiply by negative 1 if player 1 is selected
+                            w = w_table[idx] * -p
                             if w > best_w:
                                 best_w, action, w_idx = w, a, idx
 

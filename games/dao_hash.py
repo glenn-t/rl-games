@@ -48,11 +48,11 @@ def _all_symmetries(state_array: np.ndarray):
             rotated = np.rot90(rotated)
             flat = rotated.flatten()
             yield flat
-            # Player swap: 1 <-> 2, 0 stays 0
-            swapped = flat.copy()
-            swapped[flat == 1] = 2
-            swapped[flat == 2] = 1
-            yield swapped
+            # # Player swap: 1 <-> 2, 0 stays 0
+            # swapped = flat.copy()
+            # swapped[flat == 1] = 2
+            # swapped[flat == 2] = 1
+            # yield swapped
 
 
 def canonical_state(state_array: np.ndarray) -> np.ndarray:
