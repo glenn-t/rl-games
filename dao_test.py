@@ -84,7 +84,6 @@ def play_game(game, agents, quiet=False):
 
         action_str = state.action_to_string(action, current_player)
         _opt_print(quiet, f"Player {current_player} ({type(agent).__name__}): {action_str}")
-        print(len(state._history))
 
         state.apply_action(action)
 
