@@ -6,15 +6,17 @@ produced by the 8 board symmetries (4 rotations × flip) and player swap
 reducing the Q-table size by up to 16×.
 
 Usage:
-    from games.dao_hash import canonical_index, N_CANONICAL_STATES
+    from games.dao_hash import canonical_index, N_CANONICAL_STATES, TERMINAL_W_INIT
 
     idx = canonical_index(state._board.flatten())  # int in [0, N_CANONICAL_STATES)
+    w_table = TERMINAL_W_INIT.copy()               # pre-initialised W-table
 """
 
+import pickle as _pickle
 from itertools import combinations
+from pathlib import Path as _Path
 
 import numpy as np
-import games.dao as dao
 
 PIECES_PER_PLAYER = 4
 _BOARD_SIZE = 16  # 4×4 flattened
@@ -60,6 +62,84 @@ def canonical_state(state_array: np.ndarray) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Terminal detection (mirrors check_victory in dao.py, standalone)
+# ---------------------------------------------------------------------------
+
+def _check_win_flat(flat: np.ndarray) -> bool:
+    """True if this flat board (shape 16,) is a terminal winning position.
+
+    Covers all four win conditions: rows/columns, 2×2 square, 4 corners,
+    and corner-blocked.  Used only for terminal detection in game logic.
+    """
+    p = flat.tolist()
+    for t in (1, 2):
+        v = 3 - t
+        # Rows
+        if p[0]==t and p[1]==t and p[2]==t and p[3]==t: return True
+        if p[4]==t and p[5]==t and p[6]==t and p[7]==t: return True
+        if p[8]==t and p[9]==t and p[10]==t and p[11]==t: return True
+        if p[12]==t and p[13]==t and p[14]==t and p[15]==t: return True
+        # Columns
+        if p[0]==t and p[4]==t and p[8]==t and p[12]==t: return True
+        if p[1]==t and p[5]==t and p[9]==t and p[13]==t: return True
+        if p[2]==t and p[6]==t and p[10]==t and p[14]==t: return True
+        if p[3]==t and p[7]==t and p[11]==t and p[15]==t: return True
+        # 2×2 squares
+        if p[0]==t and p[1]==t and p[4]==t and p[5]==t: return True
+        if p[1]==t and p[2]==t and p[5]==t and p[6]==t: return True
+        if p[2]==t and p[3]==t and p[6]==t and p[7]==t: return True
+        if p[4]==t and p[5]==t and p[8]==t and p[9]==t: return True
+        if p[5]==t and p[6]==t and p[9]==t and p[10]==t: return True
+        if p[6]==t and p[7]==t and p[10]==t and p[11]==t: return True
+        if p[8]==t and p[9]==t and p[12]==t and p[13]==t: return True
+        if p[9]==t and p[10]==t and p[13]==t and p[14]==t: return True
+        if p[10]==t and p[11]==t and p[14]==t and p[15]==t: return True
+        # All 4 corners
+        if p[0]==t and p[3]==t and p[12]==t and p[15]==t: return True
+        # Corner blocked: player t's piece in corner, all 3 adjacent = opponent
+        if p[0]==t and p[1]==v and p[4]==v and p[5]==v: return True
+        if p[3]==t and p[2]==v and p[7]==v and p[6]==v: return True
+        if p[12]==t and p[8]==v and p[13]==v and p[9]==v: return True
+        if p[15]==t and p[11]==v and p[14]==v and p[10]==v: return True
+    return False
+
+
+def _check_unambiguous_win_flat(flat: np.ndarray) -> bool:
+    """True only for wins where the mover always wins regardless of who just moved.
+
+    Corner-blocked is excluded because the player-swap canonical normalisation
+    makes it ambiguous: "I moved into my own trap (I win)" and "I surrounded
+    the opponent (they win)" collapse to the same canonical index.  All other
+    conditions are safe to initialise at W=1.0.
+    """
+    p = flat.tolist()
+    for t in (1, 2):
+        # Rows
+        if p[0]==t and p[1]==t and p[2]==t and p[3]==t: return True
+        if p[4]==t and p[5]==t and p[6]==t and p[7]==t: return True
+        if p[8]==t and p[9]==t and p[10]==t and p[11]==t: return True
+        if p[12]==t and p[13]==t and p[14]==t and p[15]==t: return True
+        # Columns
+        if p[0]==t and p[4]==t and p[8]==t and p[12]==t: return True
+        if p[1]==t and p[5]==t and p[9]==t and p[13]==t: return True
+        if p[2]==t and p[6]==t and p[10]==t and p[14]==t: return True
+        if p[3]==t and p[7]==t and p[11]==t and p[15]==t: return True
+        # 2×2 squares
+        if p[0]==t and p[1]==t and p[4]==t and p[5]==t: return True
+        if p[1]==t and p[2]==t and p[5]==t and p[6]==t: return True
+        if p[2]==t and p[3]==t and p[6]==t and p[7]==t: return True
+        if p[4]==t and p[5]==t and p[8]==t and p[9]==t: return True
+        if p[5]==t and p[6]==t and p[9]==t and p[10]==t: return True
+        if p[6]==t and p[7]==t and p[10]==t and p[11]==t: return True
+        if p[8]==t and p[9]==t and p[12]==t and p[13]==t: return True
+        if p[9]==t and p[10]==t and p[13]==t and p[14]==t: return True
+        if p[10]==t and p[11]==t and p[14]==t and p[15]==t: return True
+        # All 4 corners
+        if p[0]==t and p[3]==t and p[12]==t and p[15]==t: return True
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Enumerate all reachable boards
 # ---------------------------------------------------------------------------
 
@@ -78,18 +158,22 @@ def _enumerate_boards() -> list:
 
 
 # ---------------------------------------------------------------------------
-# Build canonical state lookup table
+# Build canonical state lookup table + terminal W initialisation
 # ---------------------------------------------------------------------------
 
-def _build_lookup() -> tuple[dict, int]:
-    """Build {raw_hash: canonical_index} over all reachable boards.
+def _build_lookup() -> tuple[dict, int, np.ndarray]:
+    """Build lookup and terminal W-table over all reachable boards.
 
-    Returns (lookup_dict, n_canonical_states).
+    Returns:
+        lookup:          {raw_hash: canonical_index}
+        n_canonical:     number of distinct canonical states
+        terminal_w_init: float32 array of shape (n_canonical,) with 1.0 for
+                         any canonical state that is a terminal win position.
     """
     all_boards = _enumerate_boards()
 
-    # Map each canonical hash to a stable index
     canonical_hash_to_index: dict[int, int] = {}
+    canonical_boards: dict[int, np.ndarray] = {}  # idx -> one canonical board
     lookup: dict[int, int] = {}
 
     for board in all_boards:
@@ -99,28 +183,50 @@ def _build_lookup() -> tuple[dict, int]:
         canon = canonical_state(board)
         canon_h = _hash(canon)
         if canon_h not in canonical_hash_to_index:
-            canonical_hash_to_index[canon_h] = len(canonical_hash_to_index)
+            idx = len(canonical_hash_to_index)
+            canonical_hash_to_index[canon_h] = idx
+            canonical_boards[idx] = canon
         idx = canonical_hash_to_index[canon_h]
-        # Register every symmetry of this board so any equivalent state hits the cache
         for sym in _all_symmetries(board):
             h = _hash(sym)
             if h not in lookup:
                 lookup[h] = idx
 
-    return lookup, len(canonical_hash_to_index)
+    n = len(canonical_hash_to_index)
+
+    terminal_w_init = np.zeros(n, dtype=np.float32)
+    for idx, canon in canonical_boards.items():
+        if _check_unambiguous_win_flat(canon):
+            terminal_w_init[idx] = 1.0
+
+    return lookup, n, terminal_w_init
 
 
-import pickle as _pickle
-from pathlib import Path as _Path
+# ---------------------------------------------------------------------------
+# Cache
+# ---------------------------------------------------------------------------
 
 _CACHE_PATH = _Path(__file__).parent / "dao_hash_cache.pkl"
-if _CACHE_PATH.exists():
-    with open(_CACHE_PATH, "rb") as _f:
-        _LOOKUP, N_CANONICAL_STATES = _pickle.load(_f)
-else:
-    _LOOKUP, N_CANONICAL_STATES = _build_lookup()
+
+def _load_or_build():
+    if _CACHE_PATH.exists():
+        try:
+            with open(_CACHE_PATH, "rb") as _f:
+                cached = _pickle.load(_f)
+            if isinstance(cached, tuple) and len(cached) == 3:
+                return cached
+            # Old 2-tuple format — rebuild
+        except Exception:
+            pass
+        _CACHE_PATH.unlink(missing_ok=True)
+
+    result = _build_lookup()
     with open(_CACHE_PATH, "wb") as _f:
-        _pickle.dump((_LOOKUP, N_CANONICAL_STATES), _f)
+        _pickle.dump(result, _f)
+    return result
+
+
+_LOOKUP, N_CANONICAL_STATES, TERMINAL_W_INIT = _load_or_build()
 
 
 # ---------------------------------------------------------------------------
@@ -136,5 +242,4 @@ def canonical_index(state_array: np.ndarray) -> int:
     Returns:
         Integer in [0, N_CANONICAL_STATES).
     """
-    h = _hash(state_array)
-    return _LOOKUP[h]
+    return _LOOKUP[_hash(state_array)]

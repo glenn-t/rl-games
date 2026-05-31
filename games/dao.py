@@ -71,11 +71,13 @@ def _initial_board(num_rows, player_tokens):
 class DaoGame:
     """Factory for creating Dao game states."""
 
-    def __init__(self, max_game_length=200):
+    def __init__(self, max_game_length=200, track_history=True):
         self._max_game_length = max_game_length
+        self._track_history = track_history
 
     def new_initial_state(self):
-        return DaoState(self, max_game_length=self._max_game_length)
+        return DaoState(self, max_game_length=self._max_game_length,
+                        track_history=self._track_history)
 
     def num_distinct_actions(self):
         return _NUM_CELLS * 8
@@ -97,15 +99,15 @@ class DaoState:
     Designed to be the sole interface for playing and inspecting Dao games.
     """
 
-    def __init__(self, game, max_game_length):
+    def __init__(self, game, max_game_length, track_history=True):
         self._game = game
         self._max_game_length = max_game_length
-        self.set_state(
-            cur_player=0,
-            winner=None,
-            is_terminal=False,
-            history=[],
-            board=_initial_board(_NUM_ROWS, _PLAYER_TOKENS))
+        self._cur_player = 0
+        self._winner = None
+        self._is_terminal = False
+        self._move_count = 0
+        self._history = [] if track_history else None
+        self._board = _initial_board(_NUM_ROWS, _PLAYER_TOKENS)
 
     # ------------------------------------------------------------------
     # State management
@@ -116,6 +118,7 @@ class DaoState:
         self._winner = winner
         self._is_terminal = is_terminal
         self._history = history
+        self._move_count = len(history)
         self._board = board
 
     def clone(self):
@@ -125,7 +128,8 @@ class DaoState:
         cloned._cur_player = self._cur_player
         cloned._winner = self._winner
         cloned._is_terminal = self._is_terminal
-        cloned._history = self._history[:]
+        cloned._move_count = self._move_count
+        cloned._history = None  # clones don't need history
         cloned._board = self._board.copy()
         return cloned
 
@@ -289,13 +293,15 @@ class DaoState:
             r, c = nr, nc
         b[r, c] = _PLAYER_TOKENS[self._cur_player]
 
-        self._history.append(action)
+        self._move_count += 1
+        if self._history is not None:
+            self._history.append(action)
 
         winner = self.check_victory()
         if winner is not None:
             self._is_terminal = True
             self._winner = winner
-        elif len(self._history) >= self._max_game_length:
+        elif self._move_count >= self._max_game_length:
             self._is_terminal = True
         else:
             self._cur_player = 1 - self._cur_player
@@ -346,7 +352,9 @@ class DaoState:
                 blocked = self._board[current_cell[0], current_cell[1]] != _PLAYER_TOKENS[None]
 
         self._board[current_cell[0], current_cell[1]] = _PLAYER_TOKENS[None]
-        self._history.pop()
+        self._move_count -= 1
+        if self._history is not None:
+            self._history.pop()
         self._winner = None
         self._is_terminal = False
 

@@ -268,9 +268,17 @@ body {
 /* Game Board */
 .game-center {
   display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.game-controls-panel {
+  display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 30px;
+  gap: 15px;
+  min-width: 210px;
+  max-width: 240px;
 }
 
 .game-board {
@@ -340,10 +348,9 @@ body {
 /* Direction Buttons */
 .direction-buttons-container {
   background: #f8f9fa;
-  padding: 20px;
+  padding: 15px;
   border-radius: 12px;
   text-align: center;
-  min-width: 400px;
 }
 
 .direction-buttons-container h3 {
@@ -360,26 +367,25 @@ body {
 .direction-buttons {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  max-width: 300px;
+  gap: 6px;
   margin: 0 auto;
 }
 
 .direction-button {
-  padding: 15px;
+  padding: 8px 4px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
-  min-height: 70px;
+  gap: 3px;
+  min-height: 56px;
 }
 
 .direction-button:hover:not(:disabled) {
@@ -400,16 +406,107 @@ body {
 .direction-button.center-placeholder {
   background: transparent;
   cursor: default;
-  min-height: 70px;
+  min-height: 56px;
 }
 
 .direction-symbol {
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .direction-name {
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
+}
+
+/* History Panel */
+.history-panel {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 12px;
+}
+
+.history-panel h3 {
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 1em;
+}
+
+.history-step-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #666;
+  font-size: 13px;
+}
+
+.live-badge {
+  background: #4caf50;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.history-description {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 10px;
+  font-style: italic;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+  border-left: 3px solid #667eea;
+}
+
+.history-nav {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.history-btn {
+  width: 42px;
+  height: 34px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-btn:hover:not(:disabled) {
+  background: #5568d3;
+}
+
+.history-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.return-live-btn {
+  width: 100%;
+  padding: 8px;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.return-live-btn:hover {
+  background: #43a047;
 }
 
 /* Loading Overlay */
@@ -441,39 +538,37 @@ body {
 }
 
 /* Responsive Design */
+@media (max-width: 900px) {
+  .game-center {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .game-controls-panel {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
 @media (max-width: 600px) {
   .game-board {
     grid-template-rows: repeat(4, 70px);
   }
-  
+
   .board-row {
     grid-template-columns: repeat(4, 70px);
   }
-  
+
   .cell {
     width: 70px;
     height: 70px;
     font-size: 36px;
   }
-  
-  .direction-buttons-container {
-    min-width: auto;
-    width: 100%;
-  }
-  
-  .direction-buttons {
-    max-width: 250px;
-  }
-  
-  .direction-button {
-    padding: 10px;
-    min-height: 60px;
-  }
-  
+
   .game-setup {
     padding: 20px;
   }
-  
+
   .game-container {
     padding: 15px;
   }

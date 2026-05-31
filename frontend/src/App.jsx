@@ -1,25 +1,11 @@
-/**
- * Main App component - manages game state and orchestrates all components
- */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import GameSetup from './components/GameSetup';
 import GameBoard from './components/GameBoard';
 import DirectionButtons from './components/DirectionButtons';
 import GameInfo from './components/GameInfo';
+import HistoryNav from './components/HistoryNav';
 import { createGame, makeMove, makeAIMove } from './services/api';
 import './App.css';
-
-// Direction mapping to match backend
-const DIRECTION_MAPPING = {
-  'UP': 'UP',
-  'DOWN': 'DOWN',
-  'LEFT': 'LEFT',
-  'RIGHT': 'RIGHT',
-  'UP LEFT': 'UP LEFT',
-  'UP RIGHT': 'UP RIGHT',
-  'DOWN LEFT': 'DOWN LEFT',
-  'DOWN RIGHT': 'DOWN RIGHT'
-};
 
 function App() {
   // Game state
@@ -35,27 +21,24 @@ function App() {
   const [aiAgentPlayer0, setAiAgentPlayer0] = useState(null);
   const [aiAgentPlayer1, setAiAgentPlayer1] = useState(null);
   const [gameSpeed, setGameSpeed] = useState('normal');
-  
+
+  // History state
+  const [history, setHistory] = useState([]);
+  const [viewingStep, setViewingStep] = useState(null); // null = live
+
   // UI state
   const [selectedCell, setSelectedCell] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
   const [aiVsAiRunning, setAiVsAiRunning] = useState(false);
-  
-  // Get delay based on game speed
+
   const getSpeedDelay = () => {
-    const delays = {
-      'slow': 2000,
-      'normal': 1000,
-      'fast': 500,
-      'instant': 0
-    };
+    const delays = { slow: 2000, normal: 1000, fast: 500, instant: 0 };
     return delays[gameSpeed] || 1000;
   };
-  
-  // Update game state from API response
-  const updateGameState = (gameState) => {
+
+  const updateGameState = (gameState, description = '') => {
     setBoard(gameState.board);
     setCurrentPlayer(gameState.current_player);
     setIsTerminal(gameState.is_terminal);
@@ -66,26 +49,25 @@ function App() {
     if (gameState.ai_player !== undefined) setAiPlayer(gameState.ai_player);
     if (gameState.ai_agent_player0) setAiAgentPlayer0(gameState.ai_agent_player0);
     if (gameState.ai_agent_player1) setAiAgentPlayer1(gameState.ai_agent_player1);
+    setHistory(prev => [...prev, { board: gameState.board, currentPlayer: gameState.current_player, description }]);
   };
-  
-  // Start a new game
+
   const handleStartGame = async (gameMode, selectedAiAgent, selectedAiPlayer, aiAgent0, aiAgent1, speed) => {
     try {
       setLoading(true);
       setError(null);
       setGameSpeed(speed || 'normal');
+      setHistory([]);
+      setViewingStep(null);
       const gameState = await createGame(gameMode, selectedAiAgent, selectedAiPlayer, aiAgent0, aiAgent1);
       setGameId(gameState.game_id);
-      updateGameState(gameState);
+      updateGameState(gameState, 'Game started');
       setMessage('Game started!');
-      
-      // If AI vs AI mode, start the AI loop
+
       if (gameMode === 'ai_vs_ai') {
         setAiVsAiRunning(true);
         setTimeout(() => runAIvsAI(gameState.game_id), getSpeedDelay());
-      }
-      // If AI is player 0 in human vs AI, make AI move immediately
-      else if (gameMode === 'human_vs_ai' && selectedAiPlayer === 0) {
+      } else if (gameMode === 'human_vs_ai' && selectedAiPlayer === 0) {
         setTimeout(() => handleAIMove(gameState.game_id), 500);
       }
     } catch (err) {
@@ -95,24 +77,18 @@ function App() {
       setLoading(false);
     }
   };
-  
-  // Run AI vs AI game loop
+
   const runAIvsAI = async (gId) => {
     const gameIdToUse = gId || gameId;
-    
-    // Check if we should stop
-    if (!aiVsAiRunning && gId === undefined) {
-      return;
-    }
-    
+    if (!aiVsAiRunning && gId === undefined) return;
+
     try {
       setLoading(true);
       const result = await makeAIMove(gameIdToUse);
-      updateGameState(result);
+      updateGameState(result, result.action_description);
       setMessage(`${result.action_description}`);
       setLoading(false);
-      
-      // Continue if game is not over
+
       if (!result.is_terminal) {
         setTimeout(() => runAIvsAI(gameIdToUse), getSpeedDelay());
       } else {
@@ -127,27 +103,15 @@ function App() {
       setLoading(false);
     }
   };
-  
-  // Handle cell click (select piece)
+
   const handleCellClick = (row, col) => {
     if (isTerminal || loading) return;
-    
-    // Disable interaction in AI vs AI mode
-    if (mode === 'ai_vs_ai') {
-      setMessage("AI vs AI mode - watch the game play out!");
-      return;
-    }
-    
-    // Check if it's AI's turn
-    if (mode === 'human_vs_ai' && currentPlayer === aiPlayer) {
-      setMessage("It's the AI's turn!");
-      return;
-    }
-    
+    if (mode === 'ai_vs_ai') { setMessage('AI vs AI mode - watch the game play out!'); return; }
+    if (mode === 'human_vs_ai' && currentPlayer === aiPlayer) { setMessage("It's the AI's turn!"); return; }
+
     const cellValue = board[row][col];
     const playerValue = currentPlayer === 0 ? 1 : 2;
-    
-    // Only allow selecting current player's pieces
+
     if (cellValue === playerValue) {
       setSelectedCell({ row, col });
       setMessage(`Selected piece at (${row}, ${col}). Choose a direction.`);
@@ -155,31 +119,24 @@ function App() {
       setMessage('You can only select your own pieces!');
     }
   };
-  
-  // Calculate action ID from row, col, and direction
+
   const calculateActionId = (row, col, direction) => {
-    // Action ID formula: (row * 4 + col) * 8 + direction_index
     const directionOrder = ['UP', 'DOWN', 'LEFT', 'RIGHT', 'UP LEFT', 'UP RIGHT', 'DOWN LEFT', 'DOWN RIGHT'];
-    const directionIndex = directionOrder.indexOf(direction);
-    return (row * 4 + col) * 8 + directionIndex;
+    return (row * 4 + col) * 8 + directionOrder.indexOf(direction);
   };
-  
-  // Handle direction button click
+
   const handleDirectionClick = async (direction) => {
     if (!selectedCell || loading || isTerminal) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
       const actionId = calculateActionId(selectedCell.row, selectedCell.col, direction);
-      
       const result = await makeMove(gameId, actionId, currentPlayer);
-      updateGameState(result);
+      updateGameState(result, result.action_description);
       setSelectedCell(null);
       setMessage(result.action_description);
-      
-      // If game is not over and it's AI's turn, make AI move
+
       if (!result.is_terminal && mode === 'human_vs_ai' && result.current_player === aiPlayer) {
         setTimeout(() => handleAIMove(gameId), 1000);
       }
@@ -190,16 +147,14 @@ function App() {
       setLoading(false);
     }
   };
-  
-  // Handle AI move
+
   const handleAIMove = async (gId) => {
     const gameIdToUse = gId || gameId;
     try {
       setLoading(true);
       setMessage('AI is thinking...');
-      
       const result = await makeAIMove(gameIdToUse);
-      updateGameState(result);
+      updateGameState(result, result.action_description);
       setMessage(`AI: ${result.action_description}`);
     } catch (err) {
       setError(err.message);
@@ -208,8 +163,12 @@ function App() {
       setLoading(false);
     }
   };
-  
-  // Reset game
+
+  const handleHistoryNavigate = (step) => {
+    setViewingStep(step);
+    setSelectedCell(null);
+  };
+
   const handleNewGame = () => {
     setGameId(null);
     setBoard(null);
@@ -223,9 +182,10 @@ function App() {
     setSelectedCell(null);
     setError(null);
     setMessage('');
+    setHistory([]);
+    setViewingStep(null);
   };
-  
-  // Show setup screen if no game is active
+
   if (!gameId) {
     return (
       <div className="app">
@@ -233,30 +193,21 @@ function App() {
       </div>
     );
   }
-  
-  // Show game screen
+
+  const isViewingHistory = viewingStep !== null;
+  const displayBoard = isViewingHistory ? history[viewingStep]?.board : board;
+
   return (
     <div className="app">
       <div className="game-container">
         <div className="game-header">
           <h1>Dao Game</h1>
-          <button className="new-game-button" onClick={handleNewGame}>
-            New Game
-          </button>
+          <button className="new-game-button" onClick={handleNewGame}>New Game</button>
         </div>
-        
-        {error && (
-          <div className="error-banner">
-            {error}
-          </div>
-        )}
-        
-        {message && (
-          <div className="message-banner">
-            {message}
-          </div>
-        )}
-        
+
+        {error && <div className="error-banner">{error}</div>}
+        {message && <div className="message-banner">{message}</div>}
+
         <div className="game-layout">
           <div className="game-left">
             <GameInfo
@@ -269,27 +220,35 @@ function App() {
               aiAgentPlayer1={aiAgentPlayer1}
             />
           </div>
-          
+
           <div className="game-center">
             <GameBoard
-              board={board}
+              board={displayBoard}
               currentPlayer={currentPlayer}
-              selectedCell={selectedCell}
-              onCellClick={handleCellClick}
-              isTerminal={isTerminal}
+              selectedCell={isViewingHistory ? null : selectedCell}
+              onCellClick={isViewingHistory ? () => {} : handleCellClick}
+              isTerminal={isTerminal || isViewingHistory}
             />
-            
-            {selectedCell && !isTerminal && (
-              <DirectionButtons
-                selectedCell={selectedCell}
-                legalActions={legalActions}
-                onDirectionClick={handleDirectionClick}
-                disabled={loading}
+
+            <div className="game-controls-panel">
+              {!isViewingHistory && selectedCell && !isTerminal && (
+                <DirectionButtons
+                  selectedCell={selectedCell}
+                  legalActions={legalActions}
+                  onDirectionClick={handleDirectionClick}
+                  disabled={loading}
+                />
+              )}
+
+              <HistoryNav
+                history={history}
+                viewingStep={viewingStep}
+                onNavigate={handleHistoryNavigate}
               />
-            )}
+            </div>
           </div>
         </div>
-        
+
         {loading && (
           <div className="loading-overlay">
             <div className="spinner"></div>
