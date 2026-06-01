@@ -276,10 +276,10 @@ def train(
                     else:
                         action, w_idx = None, None
                         best_w = -np.inf
+                        sign = 1 if p == 0 else -1
                         for a in legal:
                             idx = _afterstate_idx(state, a)
-                            # multiply by negative 1 if player 1 is selected
-                            w = w_table[idx] * -p
+                            w = w_table[idx] * sign
                             if w > best_w:
                                 best_w, action, w_idx = w, a, idx
 

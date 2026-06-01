@@ -104,39 +104,38 @@ def _check_win_flat(flat: np.ndarray) -> bool:
     return False
 
 
-def _check_unambiguous_win_flat(flat: np.ndarray) -> bool:
-    """True only for wins where the mover always wins regardless of who just moved.
+def _unambiguous_winner(flat: np.ndarray) -> int | None:
+    """Return token value (1 or 2) of unambiguous winner, or None.
 
-    Corner-blocked is excluded because the player-swap canonical normalisation
-    makes it ambiguous: "I moved into my own trap (I win)" and "I surrounded
-    the opponent (they win)" collapse to the same canonical index.  All other
-    conditions are safe to initialise at W=1.0.
+    Corner-blocked is excluded: without player-swap symmetry the ambiguity is
+    gone, but whether the mover won or lost still depends on game context, so
+    we conservatively leave those states at W=0 and let training fill them in.
     """
     p = flat.tolist()
     for t in (1, 2):
         # Rows
-        if p[0]==t and p[1]==t and p[2]==t and p[3]==t: return True
-        if p[4]==t and p[5]==t and p[6]==t and p[7]==t: return True
-        if p[8]==t and p[9]==t and p[10]==t and p[11]==t: return True
-        if p[12]==t and p[13]==t and p[14]==t and p[15]==t: return True
+        if p[0]==t and p[1]==t and p[2]==t and p[3]==t: return t
+        if p[4]==t and p[5]==t and p[6]==t and p[7]==t: return t
+        if p[8]==t and p[9]==t and p[10]==t and p[11]==t: return t
+        if p[12]==t and p[13]==t and p[14]==t and p[15]==t: return t
         # Columns
-        if p[0]==t and p[4]==t and p[8]==t and p[12]==t: return True
-        if p[1]==t and p[5]==t and p[9]==t and p[13]==t: return True
-        if p[2]==t and p[6]==t and p[10]==t and p[14]==t: return True
-        if p[3]==t and p[7]==t and p[11]==t and p[15]==t: return True
+        if p[0]==t and p[4]==t and p[8]==t and p[12]==t: return t
+        if p[1]==t and p[5]==t and p[9]==t and p[13]==t: return t
+        if p[2]==t and p[6]==t and p[10]==t and p[14]==t: return t
+        if p[3]==t and p[7]==t and p[11]==t and p[15]==t: return t
         # 2×2 squares
-        if p[0]==t and p[1]==t and p[4]==t and p[5]==t: return True
-        if p[1]==t and p[2]==t and p[5]==t and p[6]==t: return True
-        if p[2]==t and p[3]==t and p[6]==t and p[7]==t: return True
-        if p[4]==t and p[5]==t and p[8]==t and p[9]==t: return True
-        if p[5]==t and p[6]==t and p[9]==t and p[10]==t: return True
-        if p[6]==t and p[7]==t and p[10]==t and p[11]==t: return True
-        if p[8]==t and p[9]==t and p[12]==t and p[13]==t: return True
-        if p[9]==t and p[10]==t and p[13]==t and p[14]==t: return True
-        if p[10]==t and p[11]==t and p[14]==t and p[15]==t: return True
+        if p[0]==t and p[1]==t and p[4]==t and p[5]==t: return t
+        if p[1]==t and p[2]==t and p[5]==t and p[6]==t: return t
+        if p[2]==t and p[3]==t and p[6]==t and p[7]==t: return t
+        if p[4]==t and p[5]==t and p[8]==t and p[9]==t: return t
+        if p[5]==t and p[6]==t and p[9]==t and p[10]==t: return t
+        if p[6]==t and p[7]==t and p[10]==t and p[11]==t: return t
+        if p[8]==t and p[9]==t and p[12]==t and p[13]==t: return t
+        if p[9]==t and p[10]==t and p[13]==t and p[14]==t: return t
+        if p[10]==t and p[11]==t and p[14]==t and p[15]==t: return t
         # All 4 corners
-        if p[0]==t and p[3]==t and p[12]==t and p[15]==t: return True
-    return False
+        if p[0]==t and p[3]==t and p[12]==t and p[15]==t: return t
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -167,8 +166,8 @@ def _build_lookup() -> tuple[dict, int, np.ndarray]:
     Returns:
         lookup:          {raw_hash: canonical_index}
         n_canonical:     number of distinct canonical states
-        terminal_w_init: float32 array of shape (n_canonical,) with 1.0 for
-                         any canonical state that is a terminal win position.
+        terminal_w_init: float32 array of shape (n_canonical,) with +1.0 for
+                         player-0 (token=1) wins and -1.0 for player-1 (token=2) wins.
     """
     all_boards = _enumerate_boards()
 
@@ -196,8 +195,11 @@ def _build_lookup() -> tuple[dict, int, np.ndarray]:
 
     terminal_w_init = np.zeros(n, dtype=np.float32)
     for idx, canon in canonical_boards.items():
-        if _check_unambiguous_win_flat(canon):
-            terminal_w_init[idx] = 1.0
+        winner = _unambiguous_winner(canon)
+        if winner == 1:
+            terminal_w_init[idx] = 1.0   # player 0 (token=1) wins
+        elif winner == 2:
+            terminal_w_init[idx] = -1.0  # player 1 (token=2) wins
 
     return lookup, n, terminal_w_init
 
