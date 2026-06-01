@@ -205,26 +205,27 @@ def _build_lookup() -> tuple[dict, int, np.ndarray]:
 
 
 # ---------------------------------------------------------------------------
-# Cache
+# Cache — invalidates automatically when this source file is modified
 # ---------------------------------------------------------------------------
 
 _CACHE_PATH = _Path(__file__).parent / "dao_hash_cache.pkl"
+_SOURCE_PATH = _Path(__file__)
+
 
 def _load_or_build():
-    if _CACHE_PATH.exists():
+    if _CACHE_PATH.exists() and _CACHE_PATH.stat().st_mtime >= _SOURCE_PATH.stat().st_mtime:
         try:
-            with open(_CACHE_PATH, "rb") as _f:
-                cached = _pickle.load(_f)
+            with open(_CACHE_PATH, "rb") as f:
+                cached = _pickle.load(f)
             if isinstance(cached, tuple) and len(cached) == 3:
                 return cached
-            # Old 2-tuple format — rebuild
         except Exception:
             pass
         _CACHE_PATH.unlink(missing_ok=True)
 
     result = _build_lookup()
-    with open(_CACHE_PATH, "wb") as _f:
-        _pickle.dump(result, _f)
+    with open(_CACHE_PATH, "wb") as f:
+        _pickle.dump(result, f)
     return result
 
 
