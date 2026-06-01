@@ -1,8 +1,8 @@
 """Afterstate value agent for Dao.
 
-Loads a trained W-table (value for the player who just moved to each canonical
-afterstate) and plays greedily by picking the action whose afterstate has the
-highest W value.
+Loads a trained W-table (player-0's value: +1 = player 0 wins, -1 = player 1
+wins) and plays greedily. Player 0 picks the afterstate with the highest W;
+player 1 picks the lowest (internally flipped to also argmax).
 """
 
 import numpy as np
@@ -18,9 +18,6 @@ class AfterstateAgent:
     def __init__(self, player_id: int, w_table: np.ndarray):
         self._player_id = player_id
         self._w = w_table  # shape (N_CANONICAL_STATES,)
-        # slight issue is that the terminal states are set to -1
-        # check the transition of the learning agent
-        # positive w means player 0 advantage, negative w means player 1 advantage
         if self._player_id == 1:
             self._w = self._w * -1
 

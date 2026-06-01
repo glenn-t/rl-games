@@ -1,9 +1,10 @@
-"""Dao state hasher and canonical state dictionary for Q-learning.
+"""Dao state hasher and canonical state dictionary for afterstate value learning.
 
 Canonical state: the minimum-hash representative over all equivalent states
-produced by the 8 board symmetries (4 rotations × flip) and player swap
-(exchanging token values 1 and 2). This collapses 16 raw states into one,
-reducing the Q-table size by up to 16×.
+produced by the 8 board symmetries (4 rotations × flip). Player-swap is
+intentionally excluded: W is anchored to player 0's perspective (+1 = player 0
+wins, -1 = player 1 wins), so player 0's strong position and player 1's
+mirror-image strong position must remain distinct entries.
 
 Usage:
     from games.dao_hash import canonical_index, N_CANONICAL_STATES, TERMINAL_W_INIT
