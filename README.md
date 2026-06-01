@@ -21,7 +21,10 @@ Requirements:
   * VS Code & [VS Code Remote Containers](https://code.visualstudio.com/docs/remote/containers) extension.
 
 
+## Things to explore
 
+  * Seperate the idea of game state and player state - models can learn from player state instead.
+  * Afterstate trainer - currently only learns on terminal rewards. Some games that have victory points could have intermediate rewards.
 
 ## Example Runs
 
@@ -39,4 +42,6 @@ python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 
 python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_half_naive.npy --mix 0.5 --mix-agent naive
 
 python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive.npy --mix 0.5 --mix-agent naive
+
+uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
 ```
