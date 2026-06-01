@@ -54,7 +54,7 @@ def _make_agent(agent_type, player_id, game, rng):
     if agent_type == "human":
         return HumanAgent(player_id)
     if agent_type == "afterstate":
-        return AfterstateAgent.load(player_id, "trained_models/w_table_01.npy")
+        return AfterstateAgent.load(player_id, "trained_models/w_table.npy")
     raise ValueError(f"Unknown agent type: {agent_type}")
 
 

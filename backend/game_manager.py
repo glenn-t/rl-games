@@ -14,7 +14,7 @@ from agents.naive import NaiveAgent, INVALID_ACTION
 from agents.random import RandomAgent
 from agents.afterstate_agent import AfterstateAgent
 
-_W_TABLE_PATH = "trained_models/w_table_01.npy"
+_W_TABLE_PATH = "trained_models/w_table.npy"
 import numpy as np
 
 
