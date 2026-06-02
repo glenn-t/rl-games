@@ -255,7 +255,10 @@ def train(
                 mix_agents = [RandomAgent(0, rng=rng), RandomAgent(1, rng=rng)]
 
         epsilon = epsilon_start
-        decay = (epsilon_min / epsilon_start) ** (1.0 / max(selfplay_episodes, 1))
+        if epsilon_start > 0:
+            decay = (epsilon_min / epsilon_start) ** (1.0 / max(selfplay_episodes, 1))
+        else:
+            decay = 0
         t0 = time.time()
 
         for ep in range(selfplay_episodes):
