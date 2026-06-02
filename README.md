@@ -31,21 +31,29 @@ Requirements:
 ```
 uv run python -m agents.afterstate_trainer --selfplay 200000 --eval-every 5000 --output trained_models/w_table.npy
 
-python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 0.99 --seed 1 --output trained_models/w_099_s1.npy --mix 0
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 0.99 --seed 1 --output trained_models/w_099_s1.npy --mix 0
 
-python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 1.0 --seed 1 --output trained_models/w_100_s1.npy --mix 0
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1.npy --mix 0
 
-python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_naive.npy --mix 1 --mix-agent naive
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_naive.npy --mix 1 --mix-agent naive
 
-python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive.npy --mix 1 --mix-agent naive
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive.npy --mix 1 --mix-agent naive
 
-python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_half_naive.npy --mix 0.5 --mix-agent naive
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_half_naive.npy --mix 0.5 --mix-agent naive
 
-python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive.npy --mix 0.5 --mix-agent naive
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.005 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive.npy --mix 0.5 --mix-agent naive
 
-uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
+uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
 
-uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.0001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
+uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
 
-python -m agents.afterstate_trainer --selfplay 2000000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_1m.npy --mix 0
+python -m agents.afterstate_trainer --selfplay 2000000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_1m.npy --mix 0
+```
+
+Try with shaped rewards: -10 for loss. Observation is that TD learns faster than Monte Carlo, and Monte Carlo is terrible with heavily asymmetric rewards.
+
+```
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive_weighted.npy --mix 1.0 --mix-agent naive --update-method mc --eval-every 5000
+
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive_weighted_td.npy --mix 1.0 --mix-agent naive --update-method td --eval-every 5000
 ```

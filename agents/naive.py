@@ -13,7 +13,7 @@ INVALID_ACTION = -1
 class NaiveAgent:
     """Naive one-step lookahead agent."""
 
-    def __init__(self, player_id, num_actions, rng):
+    def __init__(self, player_id, num_actions, rng=None):
         assert num_actions > 0
         self._player_id = player_id
         self._num_actions = num_actions

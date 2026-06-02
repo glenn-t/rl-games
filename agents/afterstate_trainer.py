@@ -106,7 +106,7 @@ def _evaluate(game, w_table, opponent_factory, n_games=200, rng=None):
     rng = np.random.default_rng(0)        
         
         
-    wins = losses = draws = 0
+    wins = losses = draws = total_rewards = 0
     for trial in range(n_games):
         our_side = trial % 2
         agents = {
@@ -124,24 +124,26 @@ def _evaluate(game, w_table, opponent_factory, n_games=200, rng=None):
             draws += 1
         else:
             losses += 1
-    return wins / n_games, losses / n_games, draws / n_games
+        total_rewards += state.player_return(our_side)
+
+    return wins / n_games, losses / n_games, draws / n_games, total_rewards / n_games
 
 
-def _fmt_eval(win, loss, draw):
-    return f"{win:.1%}W/{loss:.1%}L/{draw:.1%}D"
+def _fmt_eval(win, loss, draw, avg_reward):
+    return f"{win:.1%}W/{loss:.1%}L/{draw:.1%}/{avg_reward}"
 
 
-def _print_eval(ep, total, elapsed, epsilon, w_table, game, rng, alpha=None):
-    wr, lr, dr = _evaluate(game, w_table, lambda pid, r: RandomAgent(pid, rng=r),
-                            n_games=200, rng=rng)
-    wn, ln, dn = _evaluate(game, w_table, lambda pid, r: NaiveAgent(pid, num_actions=128, rng=r),
-                            n_games=200, rng=rng)
+def _print_eval(ep, total, elapsed, epsilon, w_table, game, rng, alpha=None, n_games=200):
+    wr, lr, dr, avg_reward_r = _evaluate(game, w_table, lambda pid, r: RandomAgent(pid, rng=r),
+                            n_games=n_games, rng=rng)
+    wn, ln, dn, avg_reward_n = _evaluate(game, w_table, lambda pid, r: NaiveAgent(pid, num_actions=128, rng=r),
+                            n_games=n_games, rng=rng)
     eps_str = f"eps={epsilon:.4f} | " if epsilon is not None else ""
     alpha_str = f"alpha={alpha:.4f} | " if alpha is not None else ""
     print(
         f"  Ep {ep:>7}/{total} | {eps_str}{alpha_str}"
-        f"vs Random: {_fmt_eval(wr, lr, dr)} | "
-        f"vs Naive: {_fmt_eval(wn, ln, dn)} | "
+        f"vs Random: {_fmt_eval(wr, lr, dr, avg_reward_r)} | "
+        f"vs Naive: {_fmt_eval(wn, ln, dn, avg_reward_n)} | "
         f"{elapsed:.0f}s",
         flush=True,
     )
@@ -301,6 +303,12 @@ def train(
                             alpha=alpha_cur if alpha_decaying else None)
 
         print(f"Phase 2 complete ({time.time() - t0:.0f}s).", flush=True)
+
+        print("\nFinal Evaluation on 5000 games:\n", flush=True)
+        _print_eval(ep + 1, selfplay_episodes, time.time() - t0,
+                    epsilon, w_table, game, rng,
+                    alpha=alpha_cur if alpha_decaying else None,
+                    n_games=5000)        
 
     out_dir = os.path.dirname(output_path)
     if out_dir:
