@@ -39,6 +39,7 @@ function App() {
   // Game control state
   const [isPaused, setIsPaused] = useState(true);
   const [autoplaySpeed, setAutoplaySpeed] = useState(null); // null, 'slow', 'fast'
+  const [showWValues, setShowWValues] = useState(false); // Toggle for W-values display
 
   const updateGameState = (gameState, description = '') => {
     setBoard(gameState.board);
@@ -79,21 +80,23 @@ function App() {
     }
   };
 
-  // Fetch W-values when game state changes
+  // Fetch W-values when game state changes (only if showWValues is enabled)
   React.useEffect(() => {
-    if (gameId && !isTerminal && !viewingStep) {
+    if (showWValues && gameId && !isTerminal && !viewingStep) {
       fetchWValues(gameId);
+    } else if (!showWValues) {
+      setWValues(null);
     }
-  }, [gameId, board, currentPlayer, isTerminal, viewingStep]);
+  }, [showWValues, gameId, board, currentPlayer, isTerminal, viewingStep]);
 
-  // Fetch selected piece W-values when piece is selected
+  // Fetch selected piece W-values when piece is selected (only if showWValues is enabled)
   React.useEffect(() => {
-    if (gameId && selectedCell && !isTerminal) {
+    if (showWValues && gameId && selectedCell && !isTerminal) {
       fetchSelectedPieceWValues(gameId, selectedCell.row, selectedCell.col);
     } else {
       setSelectedPieceWValues(null);
     }
-  }, [gameId, selectedCell, isTerminal]);
+  }, [showWValues, gameId, selectedCell, isTerminal]);
 
   const handleStartGame = async (gameMode, selectedAiAgent, selectedAiPlayer, aiAgent0, aiAgent1) => {
     try {
@@ -117,6 +120,12 @@ function App() {
 
   const handleStep = async () => {
     if (isTerminal || loading) return;
+    
+    // In human vs AI mode, only advance if it's AI's turn
+    if (mode === 'human_vs_ai' && currentPlayer !== aiPlayer) {
+      setMessage("It's your turn! Select a piece and direction.");
+      return;
+    }
     
     try {
       setLoading(true);
@@ -152,32 +161,24 @@ function App() {
     }
   };
 
-  // Effect to run autoplay when autoplaySpeed changes
+  // Effect to run autoplay when autoplaySpeed changes or when it's AI's turn
   React.useEffect(() => {
     if (!autoplaySpeed || isTerminal) return;
     
+    // In human vs AI mode, only run if it's AI's turn
+    if (mode === 'human_vs_ai' && currentPlayer !== aiPlayer) {
+      return;
+    }
+    
     const delay = autoplaySpeed === 'slow' ? 2000 : 500;
-    let cancelled = false;
-    
-    const runLoop = async () => {
-      while (!cancelled && !isTerminal) {
-        await handleStep();
-        if (isTerminal) break;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-      
-      if (!cancelled) {
-        setAutoplaySpeed(null);
-        setIsPaused(true);
-      }
-    };
-    
-    runLoop();
+    const timeoutId = setTimeout(async () => {
+      await handleStep();
+    }, delay);
     
     return () => {
-      cancelled = true;
+      clearTimeout(timeoutId);
     };
-  }, [autoplaySpeed, isTerminal]);
+  }, [autoplaySpeed, isTerminal, currentPlayer, mode, aiPlayer, board]);
 
   const handlePause = () => {
     setIsPaused(true);
@@ -223,10 +224,13 @@ function App() {
       setSelectedCell(null);
       setMessage(result.action_description);
       
-      // In human vs AI mode, after human moves, game stays paused
-      // User must click Step to advance AI turn
+      // In human vs AI mode, after human moves, autoplay continues if it was active
       if (!result.is_terminal && mode === 'human_vs_ai' && result.current_player === aiPlayer) {
-        setMessage("AI's turn - click Step to advance or use autoplay");
+        if (autoplaySpeed) {
+          setMessage(`AI's turn - autoplay continuing (${autoplaySpeed})`);
+        } else {
+          setMessage("AI's turn - click Step to advance or use autoplay");
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -338,6 +342,8 @@ function App() {
                 onAutoplay={handleAutoplay}
                 disabled={loading || isTerminal}
                 mode={mode}
+                showWValues={showWValues}
+                onToggleWValues={setShowWValues}
               />
 
               <HistoryNav

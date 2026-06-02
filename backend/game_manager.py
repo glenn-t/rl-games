@@ -73,6 +73,14 @@ class GameManager:
     def __init__(self):
         self.games: Dict[str, GameSession] = {}
         self.dao_game = DaoGame(max_game_length=200)
+        # Load afterstate agent for W-value analysis (always available)
+        self.analysis_agent_p0 = None
+        self.analysis_agent_p1 = None
+        try:
+            self.analysis_agent_p0 = AfterstateAgent.load(0, _W_TABLE_PATH)
+            self.analysis_agent_p1 = AfterstateAgent.load(1, _W_TABLE_PATH)
+        except Exception as e:
+            print(f"Warning: Could not load afterstate agent for analysis: {e}")
     
     def create_game(
         self,
@@ -299,15 +307,28 @@ class GameManager:
         
         # Find any afterstate agent in the game (regardless of whose turn it is)
         agent = None
+        agent_player_id = None
         if session.mode == "human_vs_ai" and isinstance(session.ai_agent, AfterstateAgent):
             agent = session.ai_agent
+            agent_player_id = session.ai_agent.player_id()
         elif session.mode == "ai_vs_ai":
             if isinstance(session.ai_agent_player0, AfterstateAgent):
                 agent = session.ai_agent_player0
+                agent_player_id = 0
             elif isinstance(session.ai_agent_player1, AfterstateAgent):
                 agent = session.ai_agent_player1
+                agent_player_id = 1
         
-        # Check if we found an afterstate agent
+        # If no afterstate agent in game, use analysis agents
+        if agent is None:
+            if current_player == 0 and self.analysis_agent_p0:
+                agent = self.analysis_agent_p0
+                agent_player_id = 0
+            elif current_player == 1 and self.analysis_agent_p1:
+                agent = self.analysis_agent_p1
+                agent_player_id = 1
+        
+        # Check if we have an agent for analysis
         if agent is None:
             return {
                 "has_afterstate_agent": False,
@@ -316,10 +337,10 @@ class GameManager:
         
         if piece_row is not None and piece_col is not None:
             # Get W-values for specific piece
-            return self._get_piece_action_values(state, agent, piece_row, piece_col, current_player)
+            return self._get_piece_action_values(state, agent, piece_row, piece_col, current_player, agent_player_id)
         else:
             # Get max W-values for all pieces
-            return self._get_all_piece_values(state, agent, current_player)
+            return self._get_all_piece_values(state, agent, current_player, agent_player_id)
 
     def _get_current_agent(self, session: GameSession, current_player: int):
         """Get the agent for the current player."""
@@ -329,7 +350,7 @@ class GameManager:
             return session.ai_agent_player0 if current_player == 0 else session.ai_agent_player1
         return None
 
-    def _get_all_piece_values(self, state, agent, current_player) -> dict:
+    def _get_all_piece_values(self, state, agent, current_player, agent_player_id) -> dict:
         """Get max W-value for each piece belonging to current player."""
         from games.dao import _ACTIONID_TO_ACTION, _PLAYER_TOKENS
         from games.dao_hash import canonical_index
@@ -348,14 +369,19 @@ class GameManager:
                 piece_actions[(row, col)].append(action)
         
         # Calculate max W-value for each piece
+        # Agent's W-table is already from agent's perspective (negated if agent is player 1)
+        # If viewing different player's pieces, negate to get their perspective
+        sign = -1 if current_player != agent_player_id else 1
         piece_values = []
         for (row, col), actions in piece_actions.items():
             w_values = [agent._w[canonical_index(state.board_after_action(a).flatten().astype(np.int8))] 
                         for a in actions]
+            # Apply sign to each value BEFORE taking max
+            signed_values = [v * sign for v in w_values]
             piece_values.append({
                 "row": int(row),
                 "col": int(col),
-                "max_w_value": float(max(w_values)),
+                "max_w_value": float(max(signed_values)),
                 "action_count": len(actions)
             })
         
@@ -365,7 +391,7 @@ class GameManager:
             "piece_values": piece_values
         }
 
-    def _get_piece_action_values(self, state, agent, piece_row, piece_col, current_player) -> dict:
+    def _get_piece_action_values(self, state, agent, piece_row, piece_col, current_player, agent_player_id) -> dict:
         """Get W-values for all actions from a specific piece."""
         from games.dao import _ACTIONID_TO_ACTION, _PLAYER_TOKENS
         from games.dao_hash import canonical_index
@@ -378,6 +404,9 @@ class GameManager:
             raise ValueError(f"No piece at ({piece_row}, {piece_col}) for player {current_player}")
         
         # Get all legal actions from this piece
+        # Agent's W-table is already from agent's perspective (negated if agent is player 1)
+        # If viewing different player's pieces, negate to get their perspective
+        sign = -1 if current_player != agent_player_id else 1
         legal_actions = state.legal_actions()
         piece_actions = []
         
@@ -394,7 +423,7 @@ class GameManager:
                 piece_actions.append({
                     "action_id": int(action),
                     "direction": direction,
-                    "w_value": float(w_value),
+                    "w_value": float(w_value * sign),
                     "target_row": int(target_row),
                     "target_col": int(target_col)
                 })

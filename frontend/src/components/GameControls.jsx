@@ -10,7 +10,9 @@ const GameControls = ({
   onStep,
   onAutoplay,
   disabled = false,
-  mode = null
+  mode = null,
+  showWValues = false,
+  onToggleWValues = null
 }) => {
   // Only show controls for AI modes
   if (!mode || mode === 'human_vs_human') {
@@ -20,6 +22,20 @@ const GameControls = ({
   return (
     <div className="game-controls">
       <h3>Game Controls</h3>
+      
+      {onToggleWValues && (
+        <div className="w-values-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={showWValues}
+              onChange={(e) => onToggleWValues(e.target.checked)}
+            />
+            Show W-Values (Afterstate Analysis)
+          </label>
+        </div>
+      )}
+      
       <div className="control-buttons">
         <button
           className={`control-button ${isPaused ? 'active' : ''}`}
