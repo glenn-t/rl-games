@@ -14,7 +14,7 @@ Usage:
 
 from deepagents import create_deep_agent
 
-from dao_game import _ACTION_TO_ACTIONID, _ACTIONID_TO_ACTION, _DIRECTION_TUPLES, _NUM_ROWS, _NUM_COLS
+from games.dao import _ACTION_TO_ACTIONID, _ACTIONID_TO_ACTION, _DIRECTION_TUPLES, _NUM_ROWS, _NUM_COLS
 from dao_agent_common import (
     DIRECTIONS, RULES,
     GameState, build_turn_message, build_graph,

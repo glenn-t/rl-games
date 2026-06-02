@@ -14,7 +14,7 @@ from functools import partial
 
 from anthropic import Anthropic
 
-from dao_game import _ACTION_TO_ACTIONID, _ACTIONID_TO_ACTION
+from games.dao import _ACTION_TO_ACTIONID, _ACTIONID_TO_ACTION
 from dao_agent_common import (
     DIRECTIONS, RULES,
     GameState, build_turn_message, build_graph,
