@@ -41,11 +41,11 @@ const GameSetup = ({ onStartGame }) => {
     
     try {
       if (mode === 'human_vs_ai') {
-        await onStartGame(mode, aiAgent, aiPlayer, null, null, gameSpeed);
+        await onStartGame(mode, aiAgent, aiPlayer, null, null);
       } else if (mode === 'ai_vs_ai') {
-        await onStartGame(mode, null, null, aiAgentPlayer0, aiAgentPlayer1, gameSpeed);
+        await onStartGame(mode, null, null, aiAgentPlayer0, aiAgentPlayer1);
       } else {
-        await onStartGame(mode, null, null, null, null, gameSpeed);
+        await onStartGame(mode, null, null, null, null);
       }
     } catch (err) {
       setError(err.message);

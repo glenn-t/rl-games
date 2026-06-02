@@ -163,3 +163,5 @@ dist-ssr/
 # RL training artifacts
 games/dao_hash_cache.pkl
 trained_models/
+
+.bob/notes/pending-notes.txt

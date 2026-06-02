@@ -149,3 +149,28 @@ export async function deleteGame(gameId) {
 }
 
 // Made with Bob
+
+
+/**
+ * Get W-values for afterstate agent
+ * @param {string} gameId - Game ID
+ * @param {number} pieceRow - Optional row of selected piece
+ * @param {number} pieceCol - Optional column of selected piece
+ * @returns {Promise<Object>} W-values data
+ */
+export async function getWValues(gameId, pieceRow = null, pieceCol = null) {
+  const params = new URLSearchParams();
+  if (pieceRow !== null) params.append('piece_row', pieceRow);
+  if (pieceCol !== null) params.append('piece_col', pieceCol);
+  
+  const url = `${API_BASE}/game/${gameId}/w-values${params.toString() ? '?' + params.toString() : ''}`;
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to get W-values');
+  }
+  
+  return response.json();
+}
+

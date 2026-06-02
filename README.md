@@ -44,4 +44,6 @@ python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 
 python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive.npy --mix 0.5 --mix-agent naive
 
 uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.005 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
+
+uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 1.0 --epsilon-min 0.0001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
 ```

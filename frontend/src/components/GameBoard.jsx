@@ -4,7 +4,7 @@
 import React from 'react';
 import Cell from './Cell';
 
-const GameBoard = ({ board, currentPlayer, selectedCell, onCellClick, isTerminal }) => {
+const GameBoard = ({ board, currentPlayer, selectedCell, onCellClick, isTerminal, wValues = null, selectedPieceWValues = null }) => {
   if (!board) {
     return <div className="game-board loading">Loading board...</div>;
   }
@@ -22,6 +22,22 @@ const GameBoard = ({ board, currentPlayer, selectedCell, onCellClick, isTerminal
   const isCellSelected = (row, col) => {
     return selectedCell && selectedCell.row === row && selectedCell.col === col;
   };
+
+  // Helper to get W-value for a piece
+  const getPieceWValue = (row, col) => {
+    if (!wValues || !wValues.has_afterstate_agent) return null;
+    const piece = wValues.piece_values?.find(p => p.row === row && p.col === col);
+    return piece ? piece.max_w_value : null;
+  };
+  
+  // Helper to get target W-value for a cell
+  const getTargetWValue = (row, col) => {
+    if (!selectedPieceWValues || !selectedPieceWValues.action_values) return null;
+    const action = selectedPieceWValues.action_values.find(
+      a => a.target_row === row && a.target_col === col
+    );
+    return action ? action.w_value : null;
+  };
   
   return (
     <div className="game-board">
@@ -36,6 +52,8 @@ const GameBoard = ({ board, currentPlayer, selectedCell, onCellClick, isTerminal
               isSelected={isCellSelected(rowIndex, colIndex)}
               isSelectable={isCellSelectable(rowIndex, colIndex)}
               onClick={onCellClick}
+              wValue={getPieceWValue(rowIndex, colIndex)}
+              targetWValue={getTargetWValue(rowIndex, colIndex)}
             />
           ))}
         </div>

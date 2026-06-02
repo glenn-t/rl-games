@@ -287,6 +287,144 @@ class GameManager:
 
 
 # Global game manager instance
+
+    def get_w_values(self, game_id: str, piece_row: Optional[int] = None, piece_col: Optional[int] = None) -> dict:
+        """Get W-values for current player's pieces or specific piece."""
+        session = self.get_game(game_id)
+        if not session:
+            raise ValueError(f"Game {game_id} not found")
+        
+        state = session.state
+        current_player = state.current_player()
+        
+        # Find any afterstate agent in the game (regardless of whose turn it is)
+        agent = None
+        if session.mode == "human_vs_ai" and isinstance(session.ai_agent, AfterstateAgent):
+            agent = session.ai_agent
+        elif session.mode == "ai_vs_ai":
+            if isinstance(session.ai_agent_player0, AfterstateAgent):
+                agent = session.ai_agent_player0
+            elif isinstance(session.ai_agent_player1, AfterstateAgent):
+                agent = session.ai_agent_player1
+        
+        # Check if we found an afterstate agent
+        if agent is None:
+            return {
+                "has_afterstate_agent": False,
+                "current_player": int(current_player)
+            }
+        
+        if piece_row is not None and piece_col is not None:
+            # Get W-values for specific piece
+            return self._get_piece_action_values(state, agent, piece_row, piece_col, current_player)
+        else:
+            # Get max W-values for all pieces
+            return self._get_all_piece_values(state, agent, current_player)
+
+    def _get_current_agent(self, session: GameSession, current_player: int):
+        """Get the agent for the current player."""
+        if session.mode == "human_vs_ai":
+            return session.ai_agent if current_player == session.ai_player else None
+        elif session.mode == "ai_vs_ai":
+            return session.ai_agent_player0 if current_player == 0 else session.ai_agent_player1
+        return None
+
+    def _get_all_piece_values(self, state, agent, current_player) -> dict:
+        """Get max W-value for each piece belonging to current player."""
+        from games.dao import _ACTIONID_TO_ACTION, _PLAYER_TOKENS
+        from games.dao_hash import canonical_index
+        
+        token = _PLAYER_TOKENS[current_player]
+        board = state.board_array()
+        legal_actions = state.legal_actions()
+        
+        # Group actions by piece
+        piece_actions = {}
+        for action in legal_actions:
+            row, col, direction = _ACTIONID_TO_ACTION[action]
+            if board[row][col] == token:
+                if (row, col) not in piece_actions:
+                    piece_actions[(row, col)] = []
+                piece_actions[(row, col)].append(action)
+        
+        # Calculate max W-value for each piece
+        piece_values = []
+        for (row, col), actions in piece_actions.items():
+            w_values = [agent._w[canonical_index(state.board_after_action(a).flatten().astype(np.int8))] 
+                        for a in actions]
+            piece_values.append({
+                "row": int(row),
+                "col": int(col),
+                "max_w_value": float(max(w_values)),
+                "action_count": len(actions)
+            })
+        
+        return {
+            "has_afterstate_agent": True,
+            "current_player": int(current_player),
+            "piece_values": piece_values
+        }
+
+    def _get_piece_action_values(self, state, agent, piece_row, piece_col, current_player) -> dict:
+        """Get W-values for all actions from a specific piece."""
+        from games.dao import _ACTIONID_TO_ACTION, _PLAYER_TOKENS
+        from games.dao_hash import canonical_index
+        
+        token = _PLAYER_TOKENS[current_player]
+        board = state.board_array()
+        
+        # Validate piece belongs to current player
+        if board[piece_row][piece_col] != token:
+            raise ValueError(f"No piece at ({piece_row}, {piece_col}) for player {current_player}")
+        
+        # Get all legal actions from this piece
+        legal_actions = state.legal_actions()
+        piece_actions = []
+        
+        for action in legal_actions:
+            row, col, direction = _ACTIONID_TO_ACTION[action]
+            if row == piece_row and col == piece_col:
+                # Calculate W-value
+                afterstate_board = state.board_after_action(action)
+                w_value = agent._w[canonical_index(afterstate_board.flatten().astype(np.int8))]
+                
+                # Find target cell (where piece lands)
+                target_row, target_col = self._find_target_cell(board, piece_row, piece_col, direction)
+                
+                piece_actions.append({
+                    "action_id": int(action),
+                    "direction": direction,
+                    "w_value": float(w_value),
+                    "target_row": int(target_row),
+                    "target_col": int(target_col)
+                })
+        
+        return {
+            "has_afterstate_agent": True,
+            "current_player": int(current_player),
+            "selected_piece": {
+                "row": int(piece_row),
+                "col": int(piece_col)
+            },
+            "action_values": piece_actions
+        }
+
+    def _find_target_cell(self, board, row, col, direction) -> tuple:
+        """Find where a piece would land when moved in a direction."""
+        from games.dao import _DIRECTION_TUPLES
+        
+        dr, dc = _DIRECTION_TUPLES[direction]
+        r, c = row, col
+        
+        while True:
+            nr, nc = r + dr, c + dc
+            if nr < 0 or nc < 0 or nr >= 4 or nc >= 4 or board[nr][nc] != 0:
+                break
+            r, c = nr, nc
+        
+        return r, c
+
+
 game_manager = GameManager()
 
 # Made with Bob

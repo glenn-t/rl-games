@@ -3,7 +3,7 @@
  */
 import React from 'react';
 
-const Cell = ({ value, row, col, isSelected, isSelectable, onClick }) => {
+const Cell = ({ value, row, col, isSelected, isSelectable, onClick, wValue = null, targetWValue = null }) => {
   const getCellClass = () => {
     const classes = ['cell'];
     
@@ -23,6 +23,10 @@ const Cell = ({ value, row, col, isSelected, isSelectable, onClick }) => {
       classes.push('selectable');
     }
     
+    if (targetWValue !== null) {
+      classes.push('target-cell');
+    }
+    
     return classes.join(' ');
   };
   
@@ -40,6 +44,12 @@ const Cell = ({ value, row, col, isSelected, isSelectable, onClick }) => {
       data-col={col}
     >
       <span className="cell-content">{getCellContent()}</span>
+      {wValue !== null && (
+        <span className="w-value-badge">{wValue.toFixed(2)}</span>
+      )}
+      {targetWValue !== null && (
+        <span className="target-w-value">{targetWValue.toFixed(2)}</span>
+      )}
     </div>
   );
 };

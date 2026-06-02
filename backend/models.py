@@ -81,4 +81,36 @@ class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None
 
+
+class PieceWValue(BaseModel):
+    """W-value information for a piece."""
+    row: int
+    col: int
+    max_w_value: float
+    action_count: int
+
+
+class ActionWValue(BaseModel):
+    """W-value information for a specific action."""
+    action_id: int
+    direction: str
+    w_value: float
+    target_row: int
+    target_col: int
+
+
+class SelectedPiece(BaseModel):
+    """Selected piece coordinates."""
+    row: int
+    col: int
+
+
+class WValuesResponse(BaseModel):
+    """Response containing W-values."""
+    has_afterstate_agent: bool
+    current_player: int
+    piece_values: Optional[List[PieceWValue]] = None
+    selected_piece: Optional[SelectedPiece] = None
+    action_values: Optional[List[ActionWValue]] = None
+
 # Made with Bob

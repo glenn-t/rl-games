@@ -4,7 +4,8 @@ import GameBoard from './components/GameBoard';
 import DirectionButtons from './components/DirectionButtons';
 import GameInfo from './components/GameInfo';
 import HistoryNav from './components/HistoryNav';
-import { createGame, makeMove, makeAIMove } from './services/api';
+import GameControls from './components/GameControls';
+import { createGame, makeMove, makeAIMove, getWValues } from './services/api';
 import './App.css';
 
 function App() {
@@ -20,7 +21,6 @@ function App() {
   const [aiPlayer, setAiPlayer] = useState(null);
   const [aiAgentPlayer0, setAiAgentPlayer0] = useState(null);
   const [aiAgentPlayer1, setAiAgentPlayer1] = useState(null);
-  const [gameSpeed, setGameSpeed] = useState('normal');
 
   // History state
   const [history, setHistory] = useState([]);
@@ -31,12 +31,14 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState('');
-  const [aiVsAiRunning, setAiVsAiRunning] = useState(false);
 
-  const getSpeedDelay = () => {
-    const delays = { slow: 2000, normal: 1000, fast: 500, instant: 0 };
-    return delays[gameSpeed] || 1000;
-  };
+  // W-values state
+  const [wValues, setWValues] = useState(null);
+  const [selectedPieceWValues, setSelectedPieceWValues] = useState(null);
+
+  // Game control state
+  const [isPaused, setIsPaused] = useState(true);
+  const [autoplaySpeed, setAutoplaySpeed] = useState(null); // null, 'slow', 'fast'
 
   const updateGameState = (gameState, description = '') => {
     setBoard(gameState.board);
@@ -52,24 +54,59 @@ function App() {
     setHistory(prev => [...prev, { board: gameState.board, currentPlayer: gameState.current_player, description }]);
   };
 
-  const handleStartGame = async (gameMode, selectedAiAgent, selectedAiPlayer, aiAgent0, aiAgent1, speed) => {
+  // Fetch W-values for all pieces
+  const fetchWValues = async (gId) => {
+    if (!gId) return;
+    try {
+      const values = await getWValues(gId);
+      setWValues(values);
+    } catch (err) {
+      console.error('Failed to fetch W-values:', err);
+      setWValues(null);
+    }
+  };
+
+  // Fetch W-values for selected piece
+  const fetchSelectedPieceWValues = async (gId, row, col) => {
+    if (!gId) return;
+    try {
+      const values = await getWValues(gId, row, col);
+      console.log('Selected piece W-values:', values);
+      setSelectedPieceWValues(values);
+    } catch (err) {
+      console.error('Failed to fetch selected piece W-values:', err);
+      setSelectedPieceWValues(null);
+    }
+  };
+
+  // Fetch W-values when game state changes
+  React.useEffect(() => {
+    if (gameId && !isTerminal && !viewingStep) {
+      fetchWValues(gameId);
+    }
+  }, [gameId, board, currentPlayer, isTerminal, viewingStep]);
+
+  // Fetch selected piece W-values when piece is selected
+  React.useEffect(() => {
+    if (gameId && selectedCell && !isTerminal) {
+      fetchSelectedPieceWValues(gameId, selectedCell.row, selectedCell.col);
+    } else {
+      setSelectedPieceWValues(null);
+    }
+  }, [gameId, selectedCell, isTerminal]);
+
+  const handleStartGame = async (gameMode, selectedAiAgent, selectedAiPlayer, aiAgent0, aiAgent1) => {
     try {
       setLoading(true);
       setError(null);
-      setGameSpeed(speed || 'normal');
       setHistory([]);
       setViewingStep(null);
+      setIsPaused(true);  // Start paused
+      setAutoplaySpeed(null);
       const gameState = await createGame(gameMode, selectedAiAgent, selectedAiPlayer, aiAgent0, aiAgent1);
       setGameId(gameState.game_id);
       updateGameState(gameState, 'Game started');
-      setMessage('Game started!');
-
-      if (gameMode === 'ai_vs_ai') {
-        setAiVsAiRunning(true);
-        setTimeout(() => runAIvsAI(gameState.game_id), getSpeedDelay());
-      } else if (gameMode === 'human_vs_ai' && selectedAiPlayer === 0) {
-        setTimeout(() => handleAIMove(gameState.game_id), 500);
-      }
+      setMessage('Game started! Use controls to advance.');
     } catch (err) {
       setError(err.message);
       throw err;
@@ -78,45 +115,94 @@ function App() {
     }
   };
 
-  const runAIvsAI = async (gId) => {
-    const gameIdToUse = gId || gameId;
-    if (!aiVsAiRunning && gId === undefined) return;
-
+  const handleStep = async () => {
+    if (isTerminal || loading) return;
+    
     try {
       setLoading(true);
-      const result = await makeAIMove(gameIdToUse);
+      const result = await makeAIMove(gameId);
       updateGameState(result, result.action_description);
-      setMessage(`${result.action_description}`);
-      setLoading(false);
-
-      if (!result.is_terminal) {
-        setTimeout(() => runAIvsAI(gameIdToUse), getSpeedDelay());
-      } else {
-        setAiVsAiRunning(false);
+      setMessage(result.action_description);
+      
+      if (result.is_terminal) {
+        setIsPaused(true);
+        setAutoplaySpeed(null);
         setMessage(`Game Over! ${result.winner !== null ? `Player ${result.winner === 0 ? 'X' : 'O'} wins!` : 'Draw!'}`);
+      } else if (mode === 'human_vs_ai' && result.current_player !== aiPlayer) {
+        setMessage("It's your turn! Select a piece and direction.");
+      } else {
+        setMessage("Click Step to advance, or use autoplay.");
       }
     } catch (err) {
-      console.error('AI vs AI error:', err);
-      setError(`AI Error: ${err.message}. Check that backend is running on port 8000.`);
-      setMessage(`AI Error: ${err.message}`);
-      setAiVsAiRunning(false);
+      setError(err.message);
+      setMessage(`Error: ${err.message}`);
+    } finally {
       setLoading(false);
     }
   };
 
+  const handleAutoplay = (speed) => {
+    if (speed === autoplaySpeed) {
+      // Toggle off
+      setAutoplaySpeed(null);
+      setIsPaused(true);
+    } else {
+      setAutoplaySpeed(speed);
+      setIsPaused(false);
+    }
+  };
+
+  // Effect to run autoplay when autoplaySpeed changes
+  React.useEffect(() => {
+    if (!autoplaySpeed || isTerminal) return;
+    
+    const delay = autoplaySpeed === 'slow' ? 2000 : 500;
+    let cancelled = false;
+    
+    const runLoop = async () => {
+      while (!cancelled && !isTerminal) {
+        await handleStep();
+        if (isTerminal) break;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      
+      if (!cancelled) {
+        setAutoplaySpeed(null);
+        setIsPaused(true);
+      }
+    };
+    
+    runLoop();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [autoplaySpeed, isTerminal]);
+
+  const handlePause = () => {
+    setIsPaused(true);
+    setAutoplaySpeed(null);
+  };
+
   const handleCellClick = (row, col) => {
     if (isTerminal || loading) return;
-    if (mode === 'ai_vs_ai') { setMessage('AI vs AI mode - watch the game play out!'); return; }
-    if (mode === 'human_vs_ai' && currentPlayer === aiPlayer) { setMessage("It's the AI's turn!"); return; }
-
+    
     const cellValue = board[row][col];
     const playerValue = currentPlayer === 0 ? 1 : 2;
 
     if (cellValue === playerValue) {
       setSelectedCell({ row, col });
-      setMessage(`Selected piece at (${row}, ${col}). Choose a direction.`);
+      
+      // Different messages based on game mode and whose turn it is
+      if (mode === 'ai_vs_ai') {
+        setMessage(`Viewing AI piece at (${row}, ${col}). Click Step to advance.`);
+      } else if (mode === 'human_vs_ai' && currentPlayer === aiPlayer) {
+        setMessage(`Viewing AI piece at (${row}, ${col}). Click Step to see AI move.`);
+      } else {
+        setMessage(`Selected piece at (${row}, ${col}). Choose a direction.`);
+      }
     } else {
-      setMessage('You can only select your own pieces!');
+      setMessage('You can only select pieces belonging to the current player!');
     }
   };
 
@@ -136,9 +222,11 @@ function App() {
       updateGameState(result, result.action_description);
       setSelectedCell(null);
       setMessage(result.action_description);
-
+      
+      // In human vs AI mode, after human moves, game stays paused
+      // User must click Step to advance AI turn
       if (!result.is_terminal && mode === 'human_vs_ai' && result.current_player === aiPlayer) {
-        setTimeout(() => handleAIMove(gameId), 1000);
+        setMessage("AI's turn - click Step to advance or use autoplay");
       }
     } catch (err) {
       setError(err.message);
@@ -228,6 +316,8 @@ function App() {
               selectedCell={isViewingHistory ? null : selectedCell}
               onCellClick={isViewingHistory ? () => {} : handleCellClick}
               isTerminal={isTerminal || isViewingHistory}
+              wValues={isViewingHistory ? null : wValues}
+              selectedPieceWValues={isViewingHistory ? null : selectedPieceWValues}
             />
 
             <div className="game-controls-panel">
@@ -239,6 +329,16 @@ function App() {
                   disabled={loading}
                 />
               )}
+
+              <GameControls
+                isPaused={isPaused}
+                autoplaySpeed={autoplaySpeed}
+                onPause={handlePause}
+                onStep={handleStep}
+                onAutoplay={handleAutoplay}
+                disabled={loading || isTerminal}
+                mode={mode}
+              />
 
               <HistoryNav
                 history={history}

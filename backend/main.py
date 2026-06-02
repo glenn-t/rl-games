@@ -11,6 +11,8 @@ from .models import (
     MoveResponse,
     AgentsResponse,
     ActionDetailsResponse,
+    WValuesResponse,
+
     ErrorResponse
 )
 from .game_manager import game_manager
@@ -142,6 +144,25 @@ async def get_action_details(game_id: str, action_id: int):
     try:
         details = game_manager.get_action_details(game_id, action_id)
         return details
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+
+
+@app.get("/api/game/{game_id}/w-values", response_model=WValuesResponse)
+async def get_w_values(
+    game_id: str,
+    piece_row: Optional[int] = None,
+    piece_col: Optional[int] = None
+):
+    """Get W-values for afterstate agent."""
+    try:
+        result = game_manager.get_w_values(game_id, piece_row, piece_col)
+        return result
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

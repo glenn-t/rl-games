@@ -575,3 +575,103 @@ body {
 }
 
 /* Made with Bob */
+
+
+
+/* W-value badges on pieces */
+.cell {
+  position: relative;
+}
+
+.w-value-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* W-values on target cells */
+.target-cell {
+  border: 2px solid #4CAF50 !important;
+  background: rgba(76, 175, 80, 0.1) !important;
+}
+
+.target-w-value {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(76, 175, 80, 0.9);
+  color: white;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Game controls */
+.game-controls {
+  margin: 20px 0;
+  padding: 15px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.game-controls h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+
+.control-button {
+  padding: 8px 16px;
+  border: 2px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  flex: 1;
+  min-width: 80px;
+}
+
+.control-button:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #999;
+  transform: translateY(-1px);
+}
+
+.control-button.active {
+  background: #4CAF50;
+  color: white;
+  border-color: #4CAF50;
+}
+
+.control-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-status {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+}
+
