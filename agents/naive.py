@@ -13,10 +13,15 @@ INVALID_ACTION = -1
 class NaiveAgent:
     """Naive one-step lookahead agent."""
 
-    def __init__(self, player_id, num_actions):
+    def __init__(self, player_id, num_actions, rng):
         assert num_actions > 0
         self._player_id = player_id
         self._num_actions = num_actions
+
+        if rng is None:
+            self._rng = np.random.default_rng()
+        else:
+            self._rng = rng
 
     def player_id(self):
         return self._player_id
@@ -53,7 +58,7 @@ class NaiveAgent:
         probs = np.zeros(self._num_actions)
         probs[np.array(cur_legal_actions)[best_mask]] = 1.0 / np.sum(best_mask)
 
-        action = np.random.choice(self._num_actions, p=probs)
+        action = self._rng.choice(self._num_actions, p=probs)
         policy = list(zip(cur_legal_actions, probs[cur_legal_actions]))
         return policy, action
 

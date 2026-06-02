@@ -53,6 +53,7 @@ import argparse
 import os
 import time
 
+
 import numpy as np
 
 from games.dao import DaoGame
@@ -101,6 +102,10 @@ def _evaluate(game, w_table, opponent_factory, n_games=200, rng=None):
     """Returns (win_rate, loss_rate, draw_rate) against opponent, alternating sides."""
     if rng is None:
         rng = np.random.default_rng()
+
+    rng = np.random.default_rng(0)        
+        
+        
     wins = losses = draws = 0
     for trial in range(n_games):
         our_side = trial % 2
@@ -129,7 +134,7 @@ def _fmt_eval(win, loss, draw):
 def _print_eval(ep, total, elapsed, epsilon, w_table, game, rng, alpha=None):
     wr, lr, dr = _evaluate(game, w_table, lambda pid, r: RandomAgent(pid, rng=r),
                             n_games=200, rng=rng)
-    wn, ln, dn = _evaluate(game, w_table, lambda pid, _: NaiveAgent(pid, num_actions=128),
+    wn, ln, dn = _evaluate(game, w_table, lambda pid, r: NaiveAgent(pid, num_actions=128, rng=r),
                             n_games=200, rng=rng)
     eps_str = f"eps={epsilon:.4f} | " if epsilon is not None else ""
     alpha_str = f"alpha={alpha:.4f} | " if alpha is not None else ""
