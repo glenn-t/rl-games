@@ -10,7 +10,6 @@ const GameSetup = ({ onStartGame }) => {
   const [aiPlayer, setAiPlayer] = useState(1);
   const [aiAgentPlayer0, setAiAgentPlayer0] = useState('naive');
   const [aiAgentPlayer1, setAiAgentPlayer1] = useState('naive');
-  const [gameSpeed, setGameSpeed] = useState('normal');
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -157,21 +156,6 @@ const GameSetup = ({ onStartGame }) => {
                   {agents.find(a => a.id === aiAgentPlayer1).description}
                 </p>
               )}
-            </div>
-            
-            <div className="form-group">
-              <label htmlFor="game-speed">Game Speed:</label>
-              <select
-                id="game-speed"
-                value={gameSpeed}
-                onChange={(e) => setGameSpeed(e.target.value)}
-                disabled={loading}
-              >
-                <option value="slow">Slow (2 seconds per move)</option>
-                <option value="normal">Normal (1 second per move)</option>
-                <option value="fast">Fast (0.5 seconds per move)</option>
-                <option value="instant">Instant (no delay)</option>
-              </select>
             </div>
           </>
         )}
