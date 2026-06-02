@@ -35,6 +35,8 @@ class GameStateResponse(BaseModel):
     mode: str
     ai_agent: Optional[str] = None
     ai_player: Optional[int] = None
+    ai_agent_player0: Optional[str] = None
+    ai_agent_player1: Optional[str] = None
 
 
 class MoveRequest(BaseModel):
