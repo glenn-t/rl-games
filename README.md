@@ -57,3 +57,11 @@ python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 
 
 python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive_weighted_td.npy --mix 1.0 --mix-agent naive --update-method td --eval-every 5000
 ```
+
+Try optimistic initial values (which is used if epsilon-start is 0)
+
+```
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.0 --epsilon-min 0.0 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive_weighted_eps_0.npy --mix 1.0 --mix-agent naive --update-method mc --eval-every 5000
+
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.0 --epsilon-min 0.0 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive_weighted_eps_0_td.npy --mix 1.0 --mix-agent naive --update-method td --eval-every 5000
+```

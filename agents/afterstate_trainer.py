@@ -188,6 +188,9 @@ def train(
         if epsilon_start is None:
             epsilon_start = 1.0
         w_table = TERMINAL_W_INIT.copy()
+        if epsilon_start == 0:
+            # use optimisitic initial values
+            w_table[:] = 100
         n_terminal = int((w_table > 0).sum())
         print(f"W-table initialised: {n_terminal} terminal winning states set to 1.0 "
               f"({n_terminal / N_CANONICAL_STATES:.1%} of {N_CANONICAL_STATES} states).", flush=True)
