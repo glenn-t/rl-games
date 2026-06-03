@@ -54,7 +54,8 @@ def _make_agent(agent_type, player_id, game, rng):
     if agent_type == "human":
         return HumanAgent(player_id)
     if agent_type == "afterstate":
-        return AfterstateAgent.load(player_id, "trained_models/w_table.npy")
+        # return AfterstateAgent.load(player_id, "trained_models/w_100_s1_naive_td.npy")
+        return AfterstateAgent.load(player_id, "trained_models/w_100_s1_2m_td.npy")
     raise ValueError(f"Unknown agent type: {agent_type}")
 
 
@@ -144,6 +145,8 @@ def main():
                     overall_wins[i] += 1
             if all(v == 0 for v in returns):
                 draws += 1
+            if returns[0] <= 0:
+                break
 
     except KeyboardInterrupt:
         print("\nStopped early.")

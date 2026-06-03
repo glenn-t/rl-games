@@ -47,7 +47,7 @@ uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha
 
 uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
 
-python -m agents.afterstate_trainer --selfplay 2000000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_1m.npy --mix 0
+python -m agents.afterstate_trainer --selfplay 2000000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_2m.npy --mix 0
 ```
 
 Try with shaped rewards: -10 for loss. Observation is that TD learns faster than Monte Carlo, and Monte Carlo is terrible with heavily asymmetric rewards.
@@ -65,3 +65,35 @@ python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 
 
 python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.0 --epsilon-min 0.0 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive_weighted_eps_0_td.npy --mix 1.0 --mix-agent naive --update-method td --eval-every 5000
 ```
+
+
+python dao_test.py --player1 afterstate --player2 naive --num_games 200
+
+## Analysis of issues
+
+Example issues.
+
+The issue is that this board state is ambigious - should you move to this state?
+
+```
+o o . o
+x x . .
+. x o .
+x . . . 
+```
+
+You should actually never move to this state, as it means the opponent can win on the next turn.
+
+Current symmetric learning approach
+If X moved to this, W should shift to -1
+If O moved to this, W should shift to 1
+
+We have a broken assumption - if a state is bad for X, it's good for O. But this state is bad for both!
+
+We can't have a symmetric learner. 
+
+Better approach - have a learner that sees the board from its own perspective - e.g. always X - player rewards are given accordingly. The game is symmetric - it doesn't matter if I play as X or O, given all states can be revisited.
+For play against a fixed agent - if playing as O, remap pieces to X and recalculate canonical states.
+Same applies to self-play
+Need the concept of a player_state and player_reward.
+
