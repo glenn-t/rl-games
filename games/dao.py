@@ -312,11 +312,15 @@ class DaoState:
         cloned.apply_action(action)
         return cloned
 
-    def board_after_action(self, action) -> np.ndarray:
+    def board_after_action(self, action, perspective_player: int = 0) -> np.ndarray:
         """Returns a board copy with action applied — cheaper than child() for value lookup.
 
         Skips history copy and terminal check. Only use when you need the
         resulting board array, not a full game state.
+
+        If perspective_player==1, tokens are swapped (1↔2) so the board is
+        always from player 0's point of view. Pass self._cur_player (or the
+        agent's player_id) to get a player-neutral representation.
         """
         row, col, direction = _ACTIONID_TO_ACTION[action]
         dr, dc = _DIRECTION_TUPLES[direction]
@@ -330,6 +334,13 @@ class DaoState:
                 break
             r, c = nr, nc
         board[r, c] = _PLAYER_TOKENS[self._cur_player]
+
+        if perspective_player == 1:
+            swapped = board.copy()
+            swapped[board == 1] = 2
+            swapped[board == 2] = 1
+            board = swapped
+
         return board
 
     def undo_action(self, action):
@@ -366,9 +377,9 @@ class DaoState:
         """Returns [reward_player0, reward_player1]. Non-zero only at terminal."""
         if self.is_terminal():
             if self._winner == 0:
-                return [1.0, -1.0]
+                return [1.0, -10.0]
             elif self._winner == 1:
-                return [-1.0, 1.0]
+                return [-10.0, 1.0]
         return [0.0, 0.0]
 
     def player_return(self, player):

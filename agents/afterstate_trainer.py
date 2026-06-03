@@ -68,9 +68,6 @@ def _update_w_mc(steps, returns, w_table, alpha, gamma):
     for p in range(2):
         p_indices = [idx for (idx, pl) in steps if pl == p]
         r_terminal = float(returns[p])
-        if p == 1:
-            r_terminal = r_terminal * -1
-            # continue
         n = len(p_indices)
         for k, idx in enumerate(p_indices):
             target = (gamma ** (n - 1 - k)) * r_terminal
@@ -85,9 +82,6 @@ def _update_w_td(steps, returns, w_table, alpha, gamma):
     for p in range(2):
         p_indices = [idx for (idx, pl) in steps if pl == p]
         r_terminal = float(returns[p])
-        if p == 1:
-            r_terminal = r_terminal * -1
-            # continue
         for i in range(len(p_indices) - 1, -1, -1):
             idx = p_indices[i]
             if i == len(p_indices) - 1:
@@ -220,7 +214,7 @@ def train(
             while not state.is_terminal():
                 p = state.current_player()
                 action = cur_agents[p].step(state)
-                steps.append((_afterstate_idx(state, action), p))
+                steps.append((_afterstate_idx(state, action, p), p))
                 state.apply_action(action)
             update_w(steps, state.returns(), w_table, alpha, gamma)
 
@@ -282,20 +276,19 @@ def train(
                 if w_side is not None and p != w_side:
                     # Fixed agent's turn
                     action = mix_agents[p].step(state)
-                    w_idx = _afterstate_idx(state, action)
+                    w_idx = _afterstate_idx(state, action, p)
                 else:
                     # Epsilon-greedy W-table turn
                     legal = state.legal_actions()
                     if rng.random() < epsilon:
                         action = int(rng.choice(legal))
-                        w_idx = _afterstate_idx(state, action)
+                        w_idx = _afterstate_idx(state, action, p)
                     else:
                         action, w_idx = None, None
                         best_w = -np.inf
-                        sign = 1 if p == 0 else -1
                         for a in legal:
-                            idx = _afterstate_idx(state, a)
-                            w = w_table[idx] * sign
+                            idx = _afterstate_idx(state, a, p)
+                            w = w_table[idx]
                             if w > best_w:
                                 best_w, action, w_idx = w, a, idx
                 if w_side is None:

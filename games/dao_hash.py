@@ -2,9 +2,9 @@
 
 Canonical state: the minimum-hash representative over all equivalent states
 produced by the 8 board symmetries (4 rotations × flip). Player-swap is
-intentionally excluded: W is anchored to player 0's perspective (+1 = player 0
-wins, -1 = player 1 wins), so player 0's strong position and player 1's
-mirror-image strong position must remain distinct entries.
+intentionally excluded from the symmetry group: callers that want a
+player-neutral lookup must swap tokens (1↔2) before calling canonical_index
+(see _afterstate_idx in afterstate_agent.py).
 
 Usage:
     from games.dao_hash import canonical_index, N_CANONICAL_STATES, TERMINAL_W_INIT
@@ -105,8 +105,8 @@ def _build_lookup() -> tuple[dict, int, np.ndarray]:
     Returns:
         lookup:          {raw_hash: canonical_index}
         n_canonical:     number of distinct canonical states
-        terminal_w_init: float32 array of shape (n_canonical,) with +1.0 for
-                         player-0 (token=1) wins and -1.0 for player-1 (token=2) wins.
+        terminal_w_init: float32 array of shape (n_canonical,) with +1.0 where
+                         token=1 (X) has won and -1.0 where token=2 (O) has won.
     """
     all_boards = _enumerate_boards()
 

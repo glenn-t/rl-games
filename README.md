@@ -23,31 +23,25 @@ Requirements:
 
 ## Things to explore
 
-  * Seperate the idea of game state and player state - models can learn from player state instead.
   * Afterstate trainer - currently only learns on terminal rewards. Some games that have victory points could have intermediate rewards.
+  * Use simple test game - tug of war - two players try and move a marker. Starts at 0, player 0 tries to get it to 10, player 1 tries to get it to -10. Each player takes turns moving the marker one step either way. Can test both terminal rewards and intermediate rewards (aka like a victory points game)
 
 ## Example Runs
 
 ```
-uv run python -m agents.afterstate_trainer --selfplay 200000 --eval-every 5000 --output trained_models/w_table.npy
-
-python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 0.99 --seed 1 --output trained_models/w_099_s1.npy --mix 0
-
 python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1.npy --mix 0
-
-python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_naive.npy --mix 1 --mix-agent naive
 
 python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive.npy --mix 1 --mix-agent naive
 
-python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_half_naive.npy --mix 0.5 --mix-agent naive
+python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_naive_td.npy --mix 1 --mix-agent naive --update-method td
 
 python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.005 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive.npy --mix 0.5 --mix-agent naive
-
-uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 0.99 --seed 1 --output trained_models/w_099_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
 
 uv run python -m agents.afterstate_trainer --selfplay 200000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_half_naive_td.npy --mix 0.5 --mix-agent naive --update-method td
 
 python -m agents.afterstate_trainer --selfplay 2000000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_2m.npy --mix 0
+
+python -m agents.afterstate_trainer --selfplay 2000000 --alpha 0.1 --alpha-final 0.001 --epsilon-start 0.2 --epsilon-min 0.001 --gamma 1.0 --seed 1 --output trained_models/w_100_s1_2m_td.npy --mix 0 --update-method td
 ```
 
 Try with shaped rewards: -10 for loss. Observation is that TD learns faster than Monte Carlo, and Monte Carlo is terrible with heavily asymmetric rewards.
