@@ -70,6 +70,7 @@ def _update_w_mc(steps, returns, w_table, alpha, gamma):
         r_terminal = float(returns[p])
         if p == 1:
             r_terminal = r_terminal * -1
+            # continue
         n = len(p_indices)
         for k, idx in enumerate(p_indices):
             target = (gamma ** (n - 1 - k)) * r_terminal
@@ -86,6 +87,7 @@ def _update_w_td(steps, returns, w_table, alpha, gamma):
         r_terminal = float(returns[p])
         if p == 1:
             r_terminal = r_terminal * -1
+            # continue
         for i in range(len(p_indices) - 1, -1, -1):
             idx = p_indices[i]
             if i == len(p_indices) - 1:
@@ -268,6 +270,7 @@ def train(
             # Decide episode type: pure self-play or W-table vs fixed agent
             if mix_agents and rng.random() < mix_ratio:
                 w_side = int(rng.integers(2))  # which side uses the W-table
+                # w_side = 0 # needed for asymmetric rewards
             else:
                 w_side = None  # both sides use the W-table
 
@@ -295,8 +298,13 @@ def train(
                             w = w_table[idx] * sign
                             if w > best_w:
                                 best_w, action, w_idx = w, a, idx
-
-                steps.append((w_idx, p))
+                if w_side is None:
+                    # Learn from all states
+                    steps.append((w_idx, p))
+                else:
+                    if p == w_side:
+                        # Only learn from states the learning agent visited
+                        steps.append((w_idx, p))
                 state.apply_action(action)
 
             update_w(steps, state.returns(), w_table, alpha_cur, gamma)
