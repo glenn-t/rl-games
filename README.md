@@ -92,3 +92,23 @@ For play against a fixed agent - if playing as O, remap pieces to X and recalcul
 Same applies to self-play
 Need the concept of a player_state and player_reward.
 
+## Observations of the afterstate agent on Dao
+
+  * TD is faster and better than MC
+  * Pure self play (2m games) achieves near minimax performance (though haven't validated - 0 losses against naive agent). Also achieves higher average reward against an agent trained against naive agent only (but only for 200k as its slower) - that agent 
+
+ Naive agent training only - 200k games, TD
+```
+ vs Random: 100.0%W/0.0%L/0.0%/1.0 | vs Naive: 99.6%W/0.4%L/0.0%/0.9582
+```
+
+Pure self play - 2m games, TD
+```
+  Ep 2000000/2000000 | eps=0.0010 | alpha=0.0010 | vs Random: 100.0%W/0.0%L/0.0%/1.0 | vs Naive: 99.8%W/0.0%L/0.2%/0.998 | 77410s
+```
+
+In theory the agent trained against the naive agent should perform better as it's trained to exploit the mistakes. Might expect 0.4% losses to account for risky play giving it an edge for more uncertain victories.
+
+Observations on gameplay:
+  * Pure self play policy values are basically 0 unless its got to a certain win position. This means it just moves around the board randomly essentially so as not to loose.
+  * Pure naive play policy values are initialised between 0.6 and 0.8 for initial states. It seems it's incentivised to try in stay in good positions waiting for the naive agent to make a mistake. Would be interesting to compare average game length between the two agents.
