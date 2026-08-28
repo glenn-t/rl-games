@@ -3,4 +3,4 @@ flake8==3.8.3
 autopep8==1.5.4
 ipykernel==5.3.4
 notebook==6.4.1
-ipython==7.18.1
+ipython==7.31.1
